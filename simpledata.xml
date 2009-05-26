@@ -1,9 +1,7 @@
-<config>
-  <user>freddy</user>
-  <passwd>longNails</passwd>
-  <books>
-    <book author="Steinbeck" title="Cannery Row"/>
-    <book author="Faulkner" title="Soldier's Pay"/>
-    <book author="Steinbeck" title="East of Eden"/>
-  </books>
-</config>
+<?xml version='1.0'?>
+<employee>
+        <name>John Doe</name>
+        <age>43</age>
+        <sex>M</sex>
+        <department>Operations</department>
+</employee>
