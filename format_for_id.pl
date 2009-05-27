@@ -1,5 +1,5 @@
 #!/usr/bin/perl -w
-
+# FIXME: Why do I keep getting this error: Can't find string terminator '"' anywhere before EOF at -e line 1.
 use strict;
 use warnings;
 
@@ -41,13 +41,20 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		
 		# Replace <br />s with newlines and appropriate tags
 		# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
+		# TODO: Work with <p>s too
 		$content =~ s/<br \/><br \/>/\n<ParaStyle:Main text>/gi;
 		$content =~ s/<br \/>/\n<ParaStyle:Main text>/gi;
 		
 		# Find href="" in all links and linked text - strip out the rest of the HTML 
 		$content =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/### $2 ($1) ###/gs; # Both quotes (href="" & href='')
 		
-		# Remove any extra spaces
+		# TODO: Work with <img> stuff
+		
+		# TODO: Work with spans for bold, italic, superscript, etc.
+		
+		# TODO: Clear out all other tags
+		
+		# Remove any extra spaces FIXME: Clear up final settings, like gsi - when are those really necessary? 
 		$content =~ s/[ ]{2,10}/ /gsi;
 		
 		# Print the final content variable, preceded with ID First paragraph style
