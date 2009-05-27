@@ -11,7 +11,7 @@ use XML::LibXML::XPathContext;
 binmode(STDOUT, ':utf8');
 #open(OUTPUT, ">:encoding(utf8)", "output.txt");
 
-my $file = 'blog-small.xml';
+my $file = 'files/blog-small.xml';
 my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
@@ -32,7 +32,7 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		
 		print "<ParaStyle:Post Title>$title\n";
 		
-		# Get and format the date - FIXME: needs work for timezone stuff
+		# Get and format the date - FIXME: Get the time zone right
 		$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
 		$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "0");				
 		
