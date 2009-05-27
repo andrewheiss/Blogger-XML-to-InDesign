@@ -32,6 +32,7 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		
 		print "<ParaStyle:Post Title>$title\n";
 		
+		# Get and format the date - FIXME: needs work for timezone stuff
 		$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
 		$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "0");				
 		
@@ -39,17 +40,19 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		print "<ParaStyle:Post Author>$author\n";
 		
 		# Replace <br />s with newlines and appropriate tags
+		# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
 		$content =~ s/<br \/><br \/>/\n<ParaStyle:Main text>/gi;
 		$content =~ s/<br \/>/\n<ParaStyle:Main text>/gi;
 		
-		# Find href="" in all links and linked text - strip out the rest of the HTML - These could/should be combined into one someday
+		# Find href="" in all links and linked text - strip out the rest of the HTML - TODO: These could/should be combined into one someday
 		$content =~ s/<a\s[^>]*href=\"([^\"]*)\"[^>]*>(.*?)<\/a>/### $2 ($1) ###/gs; # Double quotes (href=""")
 		$content =~ s/<a\s[^>]*href=\'([^\']*)\'[^>]*>(.*?)<\/a>/### $2 ($1) ###/gs; # Single quotes (href='')
 		
 		# Remove any extra spaces
 		$content =~ s/[ ]{2,10}/ /gsi;
-		print "<ParaStyle:First paragraph>$content\n\n";
 		
+		# Print the final content variable, preceded with ID First paragraph style
+		print "<ParaStyle:First paragraph>$content\n\n";
 		
 		#$content =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently
 	}
