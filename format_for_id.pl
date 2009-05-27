@@ -44,9 +44,8 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		$content =~ s/<br \/><br \/>/\n<ParaStyle:Main text>/gi;
 		$content =~ s/<br \/>/\n<ParaStyle:Main text>/gi;
 		
-		# Find href="" in all links and linked text - strip out the rest of the HTML - TODO: These could/should be combined into one someday
-		$content =~ s/<a\s[^>]*href=\"([^\"]*)\"[^>]*>(.*?)<\/a>/### $2 ($1) ###/gs; # Double quotes (href=""")
-		$content =~ s/<a\s[^>]*href=\'([^\']*)\'[^>]*>(.*?)<\/a>/### $2 ($1) ###/gs; # Single quotes (href='')
+		# Find href="" in all links and linked text - strip out the rest of the HTML 
+		$content =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/### $2 ($1) ###/gs; # Both quotes (href="" & href='')
 		
 		# Remove any extra spaces
 		$content =~ s/[ ]{2,10}/ /gsi;
