@@ -14,8 +14,8 @@ use XML::LibXML;
 use XML::LibXML::XPathContext;
 
 # Open output file, set encoding to unicode
-binmode(STDOUT, ':utf8');
-#open(OUTPUT, ">:encoding(utf8)", "output.txt");
+#binmode(STDOUT, ':utf8');
+open(OUTPUT, ">:encoding(utf8)", "output.txt");
 
 # Connect to file and start parsing it
 my $file = 'files/blog-huge.xml';
@@ -113,7 +113,7 @@ foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
 ####################################
 
 # Start InDesign tagged text
-print "<ASCII-MAC>\n";
+my $output = "<ASCII-MAC>\n";
 
 # Reverse and loop through all the blog entries in the XML file
 foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
@@ -128,15 +128,15 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		my $posturl = $xc->findvalue('./post:link[5]/@href', $entry);
 		# TODO: Get categories
 		
-		print "\n\n<ParaStyle:Post Title>$title\n";
-		print "$posturl\n";			
-		print "<ParaStyle:Post Date>$date\n";
-		print "<ParaStyle:Post Author>$author\n";
+		$output .= "\n\n<ParaStyle:Post Title>$title\n";
+		$output .= "$posturl\n";			
+		$output .= "<ParaStyle:Post Date>$date\n";
+		$output .= "<ParaStyle:Post Author>$author\n";
 		
 		$content = cleanText($content);
 		
 		# Print the final content variable, preceded with ID First paragraph style
-		print "<ParaStyle:First paragraph>$content\n";
+		$output .= "<ParaStyle:First paragraph>$content\n";
 		
 		
 		############################
@@ -155,9 +155,11 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		
 		# If there are comments print them out
 		if ($comments ne '') {
-			print "\nComments:\n";
-			print $comments;
-			print "\n";
+			$output .= "\nComments:\n";
+			$output .= $comments;
+			$output .= "\n";
 		}
 	}
 }
+
+print OUTPUT $output;
