@@ -7,15 +7,15 @@ use diagnostics;
 ##################
 # Initial set up
 ##################
+
 # Dependent packages
 use Date::Format; #http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm
 use Date::Parse;
 use XML::LibXML;
 use XML::LibXML::XPathContext;
 
-# Open output file, set encoding to unicode
+# Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
 binmode(STDOUT, ':utf8');
-open(OUTPUT, ">:encoding(utf16le)", "output.txt");
 
 # Connect to file and start parsing it
 my $file = 'files/blog-small.xml';
@@ -34,6 +34,8 @@ my $IDparagraph = "<ParaStyle:Main text>";
 my $IDfirst = "<ParaStyle:First paragraph>";
 my $IDfootstart = "<cPosition:Superscript><FootnoteStart:>";
 my $IDfootend = "<FootnoteEnd:><cPosition:>";
+my $IDcharend = "<CharStyle:>";
+my $IDitalic = "<CharStyle:Italic>";
 
 
 #####################
@@ -75,32 +77,31 @@ sub cleanText($) {
 	# Replace <br />s with newlines and appropriate tags
 	# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
 	# TODO: Work with <p>s too
-	# TODO: Make paragraph tags based on whether it is text or a comment - extra variable to the funtion?
+	# TODO: Make paragraph tags based on whether it is text or a comment - extra variable to the function?
 	# Find any sequence of <br>s and replace with a new line
 	$text =~ s/(<br\s?[\/]?>)+/\n$IDparagraph/gis;
 	
 	# Find href="" in all links and linked text - strip out the rest of the HTML 
-	# $text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2 ($1)/gis; # Both quotes (href="" & href='')
 	$text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2$IDfootstart$1$IDfootend/gis; # Both quotes (href="" & href='')
-	
 	
 	# Find images, keep src link, strip the rest out
 	$text =~ s/<img\s[^>]*src=["']+?([^["']*)["']+?[^>]*>/{$1}/gis;
 	
+	# TODO: Possibly extend selection out to punctuation character if it's adjacent so it's included in the wrapped text
 	# TODO: Work with spans for bold, italic, superscript, etc.
 	# Italicize text between any span with the word italic in any attribute
-	$text =~ s/<span[^>]*?italic[^>]*>(.*?)<\/span>/*$1*/gis;
+	$text =~ s/<span[^>]*?italic[^>]*>(.*?)<\/span>/$IDitalic$1$IDcharend/gis;
+	$text =~ s/<i>(.*?)<\/i>/$IDitalic$1$IDcharend/gis; # TODO: Possibly combine with previous expression with | - for some reason it doesn't work
 	
 	$text =~ s/<span[^>]*>(.*?)<\/span>/$1/gis;
 	
 	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDparagraph$1/gis;
 	
 	# TODO: Clear out all other tags
+	#$content =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently
 	
 	# Remove any extra spaces FIXME: Clear up final settings, like gsi - when are those really necessary? 
 	$text =~ s/[ ]{2,10}/ /gis;
-	
-	#$content =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently
 	
 	return $text;
 }
@@ -148,7 +149,9 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		my $commentsNum = $xc->findvalue('./post:link[2]/@title', $entry);
 		my $posturl = $xc->findvalue('./post:link[5]/@href', $entry);
 		# TODO: Get categories
+		# Get all the post:category entries except [1]
 		# TODO: Indexing
+		# Possible ID index syntax = <IndexEntry:=<IndexEntryType:IndexPageEntry><IndexEntryRangeType:kCurrentPage><IndexEntryDisplayString:Test>>
 		
 		$output .= "\n\n$IDtitle$title\n";
 		$output .= "$IDurl$posturl\n";			
@@ -185,4 +188,5 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 }
 
 # Print everything out
+open(OUTPUT, ">:encoding(utf16le)", "output.txt");
 print OUTPUT $output;
