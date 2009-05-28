@@ -10,9 +10,9 @@ use XML::LibXML;
 use XML::LibXML::XPathContext;
 
 binmode(STDOUT, ':utf8');
-open(OUTPUT, ">:encoding(utf8)", "output.txt");
+#open(OUTPUT, ">:encoding(utf8)", "output.txt");
 
-my $file = 'files/jordan.xml';
+my $file = 'files/blog-small.xml';
 my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
@@ -27,7 +27,9 @@ $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
 my $tmpComments = File::Temp->new(SUFFIX=>'.txt') or die "File::Temp: $!\n";
 binmode $tmpComments, ":utf8";
 
-# Loop through all the comments and save them in $tmpComments
+my %comments;
+
+# Loop through all the comments and save them in a hash, using the url as the key
 foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
 	my $type =  $xc->findvalue('./post:category/@term', $comment);
 	if ($type =~ /comment/) {
@@ -41,7 +43,9 @@ foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
 		$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
 		$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "0");
 		
-		print $tmpComments "$posturl~~~$date~~~$author~~~$content\n";
+		my $fullComment = "$date~~~$author~~~$content";
+		# Store it all in the hash
+		push @{$comments{$posturl}}, $fullComment;
 	}
 }
 
@@ -51,7 +55,7 @@ foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
 ####################################
 
 # Start InDesign tagged text
-print OUTPUT "<ASCII-MAC>\n";
+print "<ASCII-MAC>\n";
 
 # Reverse and loop through all the blog entries in the XML file
 foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
@@ -64,14 +68,14 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		my $commentsNum = $xc->findvalue('./post:link[2]/@title', $entry);
 		my $posturl = $xc->findvalue('./post:link[5]/@href', $entry);
 		
-		print OUTPUT "\n\n<ParaStyle:Post Title>$title\n";
-		print OUTPUT "$posturl\n";
+		print "\n\n<ParaStyle:Post Title>$title\n";
+		print "$posturl\n";
 		# Get and format the date - FIXME: Get the time zone right
 		$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
 		$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "0");				
 		
-		print OUTPUT "<ParaStyle:Post Date>$date\n";
-		print OUTPUT "<ParaStyle:Post Author>$author\n";
+		print "<ParaStyle:Post Date>$date\n";
+		print "<ParaStyle:Post Author>$author\n";
 		
 		# Replace <br />s with newlines and appropriate tags
 		# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
@@ -93,35 +97,29 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		$content =~ s/[ ]{2,10}/ /gsi;
 		
 		# Print the final content variable, preceded with ID First paragraph style
-		print OUTPUT "<ParaStyle:First paragraph>$content\n";
+		print "<ParaStyle:First paragraph>$content\n";
 		
 		
 		################
 		# Add comments
 		################
+		 
+		my $comments = '';
 		
-		seek $tmpComments, 0, 0 or die "Seek $tmpComments failed: $!\n"; #Rewind temporary comments file
-		my $comments = ''; # Initialize $comments
-		
-		# Loop through temporary file and find comments that match the post url
-		while (my $line = <$tmpComments>) {
-			# Split each line, store url as $commentID
-			my @process_comment = split(/~~~/, $line);
-			my $commentID = $process_comment[0];
-
-			# If the urls match, add it to the comments variable
-			if ($commentID eq $posturl) {
-				my $commentDate = $process_comment[1];
-				my $commentAuthor = $process_comment[2];
-				my $commentBody = $process_comment[3];
-				$comments.= "$commentDate | $commentAuthor | $commentBody";
-			}
+		foreach my $c (@{$comments{$posturl}}) {
+			#print "$c\n";
+			my @process_comment = split(/~~~/, $c);
+			my $commentDate = $process_comment[0];
+			my $commentAuthor = $process_comment[1];
+			my $commentBody = $process_comment[2];
+			$comments.= "$commentAuthor | $commentDate | $commentBody\n";
 		}
 		
-		# If there are comments print them out
+		#If there are comments print them out
 		if ($comments ne '') {
-			print OUTPUT "\nComments:\n";
-			print OUTPUT $comments;
+			print "\nComments:\n";
+			print $comments;
+			print "\n";
 		}
 		
 		#$content =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently
