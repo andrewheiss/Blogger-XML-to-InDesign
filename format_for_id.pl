@@ -18,14 +18,14 @@ use XML::LibXML::XPathContext;
 binmode(STDOUT, ':utf8');
 
 # Connect to file and start parsing it
-my $file = 'files/blog-huge.xml';
+my $file = 'files/blog-tiny.xml';
 my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
 
 
-my $setyear = "2006";
+my $setyear = "2009";
 
 # InDesign tags - All these styles must be present in the InDesign file
 my $IDstart = "<UNICODE-MAC>\n";
@@ -88,11 +88,11 @@ sub getYear($) {
 #
 #############################################################################
 
+# TODO: Separate this into tag cleaning, line and space removing functions - maybe that'll fix it
+
 sub cleanText {
 	my $text = $_[0];
 	my $type = defined $_[1] ? $_[1] : 'post'; # Makes the default text type 'post'
-	# my $type = shift; $type = 'type' unless defined $type;
-	
 	
 	my $IDcleanpara = ($type eq 'comment') ? $IDcommentpara : $IDparagraph ;
 	
@@ -229,6 +229,6 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 }
 
 # Print everything out
-open(OUTPUT, ">:encoding(utf16le)", "output.txt");
-print OUTPUT $output;
-# print $output;
+# open(OUTPUT, ">:encoding(utf16le)", "output.txt");
+# print OUTPUT $output;
+print $output;
