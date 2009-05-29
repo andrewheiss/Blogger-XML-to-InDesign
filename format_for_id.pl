@@ -18,11 +18,14 @@ use XML::LibXML::XPathContext;
 binmode(STDOUT, ':utf8');
 
 # Connect to file and start parsing it
-my $file = 'files/blog-tiny.xml';
+my $file = 'files/blog-huge.xml';
 my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
+
+
+my $setyear = "2006";
 
 # InDesign tags - All these styles must be present in the InDesign file
 my $IDstart = "<UNICODE-MAC>\n";
@@ -39,6 +42,9 @@ my $IDfootstart = "<IDcPosition:Superscript><IDFootnoteStart:>";
 my $IDfootend = "<IDFootnoteEnd:><IDcPosition:>";
 my $IDcharend = "<IDCharStyle:>";
 my $IDitalic = "<IDCharStyle:Italic>";
+my $IDbold = "<IDCharStyle:Bold>";
+my $IDsmall = "<IDCharStyle:Small>";
+my $IDsmallitalic = "<IDCharStyle:Small italic>";
 
 
 #####################
@@ -60,6 +66,14 @@ sub cleanDate($) {
 	my $date= $_[0];
 	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
 	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "0");
+	$date =~ s/[ ]{2,10}/ /gis;
+	return $date;
+}
+
+sub getYear($) {
+	my $date= $_[0];
+	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
+	$date = time2str("%Y", str2time($date), "0");
 	return $date;
 }
 
@@ -94,11 +108,26 @@ sub cleanText {
 	# Find images, keep src link, strip the rest out
 	$text =~ s/<img\s[^>]*src=["']+?([^["']*)["']+?[^>]*>/{$1}/gis;
 	
-	# TODO: Possibly extend selection out to punctuation character if it's adjacent so it's included in the wrapped text
+	# Make any span with font-size in it smaller. It's not all really small, and there are different levels blogger uses. 78% seems to be the most common
+	# TODO: Make me more flexible - find all the different current and historical blogger sizes
+	$text =~ s/<span[^>]*?font-size[^>]*>(.*?)<\/span>/$IDsmall$1$IDcharend/gis;
+	
 	# TODO: Work with spans for bold, italic, superscript, etc.
-	# Italicize text between any span with the word italic in any attribute
+	# Italicize text between <i>, <em>, and any span with the word italic in any attribute
 	$text =~ s/<span[^>]*?italic[^>]*>(.*?)<\/span>/$IDitalic$1$IDcharend/gis;
-	$text =~ s/<i>(.*?)<\/i>/$IDitalic$1$IDcharend/gis; # TODO: Possibly combine with previous expression with | - for some reason it doesn't work
+	$text =~ s/<i>(.*?)<\/i>/$IDitalic$1$IDcharend/gis; 
+	$text =~ s/<em>(.*?)<\/em>/$IDitalic$1$IDcharend/gis;
+	
+	# Bold text between <b>, <strong>, and any span with the word bold in any attribute
+	$text =~ s/<span[^>]*?bold[^>]*>(.*?)<\/span>/$IDbold$1$IDcharend/gis;
+	$text =~ s/<b>(.*?)<\/b>/$IDbold$1$IDcharend/gis; 
+	$text =~ s/<strong>(.*?)<\/strong>/$IDbold$1$IDcharend/gis;
+	
+	#FIXME: ID can't handle nested character styles - combine them when necessary
+	# $text =~ s/\Q$IDsmall\Q$IDitalic/$IDsmallitalic/gi;
+	# $text =~ s/\Q$IDcharend\Q$IDcharend/$IDcharend/gi;
+	# $text =~ s/<CharStyle:Small><CharStyle:Italic>/$IDsmallitalic/gi;
+	# $text =~ s/<CharStyle:><CharStyle:>/$IDcharend/gi;
 	
 	$text =~ s/<span[^>]*>(.*?)<\/span>/$1/gis;
 	
@@ -126,12 +155,11 @@ sub cleanText {
 
 my %comments;
 foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
-	my $type =  $xc->findvalue('./post:category/@term', $comment);
+	my $type = $xc->findvalue('./post:category/@term', $comment);
 	if ($type =~ /comment/) {
 		my $content = ($xc->findvalue('./post:content', $comment) eq '') ? 'No content in the post' : $xc->findvalue('./post:content', $comment);
 		my $author = $xc->findvalue('./post:author/post:name', $comment);
-		my $date = $xc->findvalue('./post:published', $comment);
-		$date = cleanDate($date);
+		my $date = cleanDate($xc->findvalue('./post:published', $comment));
 		my $posturl = $xc->findvalue('./*[name()="thr:in-reply-to"]/@href', $comment);
 		my $fullComment = "$date~~~$author~~~$content";
 		$fullComment = cleanText($fullComment, 'comment');
@@ -152,11 +180,12 @@ my $output = $IDstart;
 # Reverse and loop through all the blog entries in the XML file
 foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 	my $type =  $xc->findvalue('./post:category[1]/@term', $entry);
-	if ($type =~ /post/) {
+	my $date = $xc->findvalue('./post:published', $entry);
+	my $checkyear = getYear($date);
+	if (($type =~ /post/) && ($checkyear eq $setyear)) {
 		my $title = ($xc->findvalue('./post:title', $entry) eq '') ? 'Untitled post' : $xc->findvalue('./post:title', $entry);
 		my $content = ($xc->findvalue('./post:content', $entry) eq '') ? 'No content in the post' : $xc->findvalue('./post:content', $entry);
 		my $author = $xc->findvalue('./post:author/post:name', $entry);
-		my $date = $xc->findvalue('./post:published', $entry);
 		$date = cleanDate($date);
 		my $commentsNum = $xc->findvalue('./post:link[2]/@title', $entry);
 		my $posturl = $xc->findvalue('./post:link[5]/@href', $entry);
@@ -200,6 +229,6 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 }
 
 # Print everything out
-# open(OUTPUT, ">:encoding(utf16le)", "output.txt");
-# print OUTPUT $output;
-print $output;
+open(OUTPUT, ">:encoding(utf16le)", "output.txt");
+print OUTPUT $output;
+# print $output;
