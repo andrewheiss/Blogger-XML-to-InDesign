@@ -30,12 +30,12 @@ my $IDtitle = "<ParaStyle:Post Title>";
 my $IDurl = "<ParaStyle:Post URL>";			
 my $IDdate = "<ParaStyle:Post Date>";
 my $IDauthor = "<ParaStyle:Post Author>";
-my $IDparagraph = "<ParaStyle:Main text>";
+my $IDparagraph = "<IDParaStyle:Main text>";
 my $IDfirst = "<ParaStyle:First paragraph>";
-my $IDfootstart = "<cPosition:Superscript><FootnoteStart:>";
-my $IDfootend = "<FootnoteEnd:><cPosition:>";
-my $IDcharend = "<CharStyle:>";
-my $IDitalic = "<CharStyle:Italic>";
+my $IDfootstart = "<IDcPosition:Superscript><IDFootnoteStart:>";
+my $IDfootend = "<IDFootnoteEnd:><IDcPosition:>";
+my $IDcharend = "<IDCharStyle:>";
+my $IDitalic = "<IDCharStyle:Italic>";
 
 
 #####################
@@ -74,12 +74,11 @@ sub cleanDate($) {
 sub cleanText($) {
 	my $text = $_[0];
 	
-	# Replace <br />s with newlines and appropriate tags
 	# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
-	# TODO: Work with <p>s too
 	# TODO: Make paragraph tags based on whether it is text or a comment - extra variable to the function?
 	# Find any sequence of <br>s and replace with a new line
 	$text =~ s/(<br\s?[\/]?>)+/\n$IDparagraph/gis;
+	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDparagraph$1/gis;
 	
 	# Find href="" in all links and linked text - strip out the rest of the HTML 
 	$text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2$IDfootstart$1$IDfootend/gis; # Both quotes (href="" & href='')
@@ -95,13 +94,18 @@ sub cleanText($) {
 	
 	$text =~ s/<span[^>]*>(.*?)<\/span>/$1/gis;
 	
-	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDparagraph$1/gis;
-	
 	# TODO: Clear out all other tags
-	#$content =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently
+	#$text =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently - 
+	$text =~ s/<[^ID](?:[^>'"]*|(['"]).*?\1)*>//gs;
+	$text =~ s/<ID/</gs;
 	
 	# Remove any extra spaces FIXME: Clear up final settings, like gsi - when are those really necessary? 
 	$text =~ s/[ ]{2,10}/ /gis;
+	
+	# FIXME: Clear out orphan ID tags 
+	#$text =~ s/^<[^<]+?>$//g;
+	# Get rid of blank lines
+	#$text =~ s/^\n$//g;	
 	
 	return $text;
 }
@@ -154,7 +158,7 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		# Possible ID index syntax = <IndexEntry:=<IndexEntryType:IndexPageEntry><IndexEntryRangeType:kCurrentPage><IndexEntryDisplayString:Test>>
 		
 		$output .= "\n\n$IDtitle$title\n";
-		$output .= "$IDurl$posturl\n";			
+		$output .= "$IDurl$posturl\n";
 		$output .= "$IDdate$date\n";
 		$output .= "$IDauthor$author\n";
 		
@@ -188,5 +192,6 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 }
 
 # Print everything out
-open(OUTPUT, ">:encoding(utf16le)", "output.txt");
-print OUTPUT $output;
+# open(OUTPUT, ">:encoding(utf16le)", "output.txt");
+# print OUTPUT $output;
+print $output;
