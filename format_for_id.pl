@@ -18,7 +18,7 @@ use XML::LibXML::XPathContext;
 binmode(STDOUT, ':utf8');
 
 # Connect to file and start parsing it
-my $file = 'files/blog-small.xml';
+my $file = 'files/blog-tiny.xml';
 my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
@@ -32,6 +32,9 @@ my $IDdate = "<ParaStyle:Post Date>";
 my $IDauthor = "<ParaStyle:Post Author>";
 my $IDparagraph = "<IDParaStyle:Main text>";
 my $IDfirst = "<ParaStyle:First paragraph>";
+my $IDcommentpara = "<ParaStyle:Comments\\:Comment text>";
+my $IDcommentauthor = "<ParaStyle:Comments\\:Comment author>";
+my $IDcommentdate = "<ParaStyle:Comments\\:Comment date>";
 my $IDfootstart = "<IDcPosition:Superscript><IDFootnoteStart:>";
 my $IDfootend = "<IDFootnoteEnd:><IDcPosition:>";
 my $IDcharend = "<IDCharStyle:>";
@@ -65,20 +68,25 @@ sub cleanDate($) {
 #
 #	Function name: cleanText
 #	Purpose: Take out html tags, remove spaces, and generally clean up a string
-#	Incoming parameters: Text
+#	Incoming parameters: Text to be cleaned as $text, optional $type - use 'comment' to put appropriate styles in comments
 #	Returns: Cleaned up text
 #	Dependencies: None
 #
 #############################################################################
 
-sub cleanText($) {
+sub cleanText {
 	my $text = $_[0];
+	my $type = defined $_[1] ? $_[1] : 'post'; # Makes the default text type 'post'
+	# my $type = shift; $type = 'type' unless defined $type;
+	
+	
+	my $IDcleanpara = ($type eq 'comment') ? $IDcommentpara : $IDparagraph ;
 	
 	# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
 	# TODO: Make paragraph tags based on whether it is text or a comment - extra variable to the function?
 	# Find any sequence of <br>s and replace with a new line
-	$text =~ s/(<br\s?[\/]?>)+/\n$IDparagraph/gis;
-	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDparagraph$1/gis;
+	$text =~ s/(<br\s?[\/]?>)+/\n$IDcleanpara/gis;
+	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDcleanpara$1/gis;
 	
 	# Find href="" in all links and linked text - strip out the rest of the HTML 
 	$text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2$IDfootstart$1$IDfootend/gis; # Both quotes (href="" & href='')
@@ -126,7 +134,7 @@ foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
 		$date = cleanDate($date);
 		my $posturl = $xc->findvalue('./*[name()="thr:in-reply-to"]/@href', $comment);
 		my $fullComment = "$date~~~$author~~~$content";
-		$fullComment = cleanText($fullComment);
+		$fullComment = cleanText($fullComment, 'comment');
 		
 		# Store it all in the hash
 		push @{$comments{$posturl}}, $fullComment;
@@ -162,7 +170,7 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		$output .= "$IDdate$date\n";
 		$output .= "$IDauthor$author\n";
 		
-		$content = cleanText($content);
+		$content = cleanText($content, 'post');
 		
 		# Print the final content variable, preceded with ID First paragraph style
 		$output .= "$IDfirst$content\n";
@@ -179,14 +187,14 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 			my $commentDate = $process_comment[0];
 			my $commentAuthor = $process_comment[1];
 			my $commentBody = $process_comment[2];
-			$comments.= "$commentAuthor | $commentDate | $commentBody\n";
+			$comments .= "$IDcommentauthor$commentAuthor\n";
+			$comments .= "$IDcommentdate$commentDate\n";
+			$comments .= "$IDcommentpara$commentBody\n";
 		}
 		
 		# If there are comments print them out
 		if ($comments ne '') {
-			$output .= "\nComments:\n";
 			$output .= $comments;
-			$output .= "\n";
 		}
 	}
 }
