@@ -1,66 +1,84 @@
 #!/usr/bin/perl -w
-# FIXME: Why do I keep getting this error: Can't find string terminator '"' anywhere before EOF at -e line 1.
+# FUTURE: Why do I keep getting this error: Can't find string terminator '"' anywhere before EOF at -e line 1.
 use strict;
 use warnings;
 use diagnostics;
+binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
 
-##################
-# Initial set up
-##################
 
+#---------------------
 # Dependent packages
-# To get to the CPAN shell: perl -MCPAN -e shell || install Package::Name
-use Date::Format; #http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm
+#---------------------
+
+# To get to the CPAN shell: "perl -MCPAN -e shell" and then "install Package::Name"
+use Date::Format;
 use Date::Parse;
 use XML::LibXML;
 use XML::LibXML::XPathContext;
 
-# Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
-binmode(STDOUT, ':utf8');
 
-# Select what year to extract MAYBE: Give a range of dates rather than just a year
+#-----------------------
+# Main setup variables
+#-----------------------
+
+# Select what year to extract FUTURE: Allow for a range of dates rather than just a year
 my $setyear = "2009";
 
-# Connect to file and start parsing it
+# Set the XML file to be parsed and cleaned FUTURE: Maybe allow this to be run via command line arguments as well
 my $file = 'files/blog-tiny.xml';
+
+
+#----------------------------
+# InDesign Tagged Text tags
+#----------------------------
+
+# These tags all follow the IDTT format standard. See http://livedocs.adobe.com/en_US/InDesign/5.0/tagged_text.pdf for full documentation
+# If you want the tag to remain in the file when you place the text, the style referenced must already exist in the InDesign file
+
+# !!! IMPORTANT !!!
+# Because of the text cleanup functions that remove HTML tags from the blog data, the two tildes (~~) serve as dummy text in the tag
+# If you add any tags here, make sure two tildes come after the initial <, otherwise the tag will be cut from the final output
+
+my $IDstart = "<~~UNICODE-MAC>\n";
+my $IDtitle = "<~~ParaStyle:Post Title>";
+my $IDurl = "<~~ParaStyle:Post URL>";			
+my $IDdate = "<~~ParaStyle:Post Date>";
+my $IDauthor = "<~~ParaStyle:Post Author>";
+my $IDparagraph = "<~~ParaStyle:Main text>";
+my $IDfirst = "<~~ParaStyle:First paragraph>";
+my $IDtags = "<~~ParaStyle:Post tags>";
+my $IDlist = "<~~ParaStyle:List>";
+my $IDcommentpara = "<~~ParaStyle:Comments\\:Comment text>";
+my $IDcommentauthor = "<~~ParaStyle:Comments\\:Comment author>";
+my $IDcommentdate = "<~~ParaStyle:Comments\\:Comment date>";
+my $IDfootstart = "<~~cPosition:Superscript><~~FootnoteStart:>";
+my $IDfootend = "<~~FootnoteEnd:><~~cPosition:>";
+my $IDcharend = "<~~CharStyle:>";
+my $IDitalic = "<~~CharStyle:Italic>";
+my $IDbold = "<~~CharStyle:Bold>";
+my $IDsmall = "<~~CharStyle:Small>";
+my $IDsmallitalic = "<~~CharStyle:Small italic>";
+
+
+#--------------
+# Get started
+#--------------
+
+# Connect to XML file and create LibXML object with the Atom namespace
 my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
 
-# InDesign tags - All these styles must be present in the InDesign file
-my $IDstart = "<IDUNICODE-MAC>\n";
-my $IDtitle = "<IDParaStyle:Post Title>";
-my $IDurl = "<IDParaStyle:Post URL>";			
-my $IDdate = "<IDParaStyle:Post Date>";
-my $IDauthor = "<IDParaStyle:Post Author>";
-my $IDparagraph = "<IDParaStyle:Main text>";
-my $IDfirst = "<IDParaStyle:First paragraph>";
-my $IDtags = "<IDParaStyle:Post tags>";
-my $IDlist = "<IDParaStyle:List>";
-my $IDcommentpara = "<IDParaStyle:Comments\\:Comment text>";
-my $IDcommentauthor = "<IDParaStyle:Comments\\:Comment author>";
-my $IDcommentdate = "<IDParaStyle:Comments\\:Comment date>";
-my $IDfootstart = "<IDcPosition:Superscript><IDFootnoteStart:>";
-my $IDfootend = "<IDFootnoteEnd:><IDcPosition:>";
-my $IDcharend = "<IDCharStyle:>";
-my $IDitalic = "<IDCharStyle:Italic>";
-my $IDbold = "<IDCharStyle:Bold>";
-my $IDsmall = "<IDCharStyle:Small>";
-my $IDsmallitalic = "<IDCharStyle:Small italic>";
-
-
-
-
-#############################################################################
+#----------------------------------------------------------------------------
 #
-#	Function name: getYear
+#	Sub name: getYear
 #	Purpose: Gets only the year out of Blogger's date to be used in reorganizePosts() and limit post extraction to one year
 #	Incoming parameters: Blogger's date - 2008-02-29T08:50:00.000-08:00
 #	Returns: A four digit year
 #	Dependencies: Date::Format, Date::Parse
 #
-#############################################################################
+#----------------------------------------------------------------------------
 
 sub getYear($) {
 	my $date= $_[0];
@@ -71,20 +89,20 @@ sub getYear($) {
 
 
 
-
-#############################################################################
+#----------------------------------------------------------------------------
 #
-#	Function name: cleanDate
+#	Sub name: cleanDate
 #	Purpose: Transform the date provided by Blogger into a string that can be used by Date::Parse's str2ime()
 #	Incoming parameters: Blogger's date - 2008-02-29T08:50:00.000-08:00
 #	Returns: Cleaned up date
 #	Dependencies: Date::Format, Date::Parse
 #
-#############################################################################
+#----------------------------------------------------------------------------
 
 sub cleanDate($) {
 	my $date= $_[0];
 	
+	#------------------------------------------------------------------------
 	# Time zone issues:
 	# Blogger decides the time zone offset based on the global time zone blog setting rather than GMT
 	# So, if you publish a post in MST, the timestamp will end in -07:00
@@ -94,62 +112,61 @@ sub cleanDate($) {
 	# The best solution is to export the blog while it is set in the desired timezone. 
 	# If there are mutliple timezones in the year, download several copies of the backup, run this on all of them, and combine them in InDesign as necessary
 	# It's extremely messy and convoluted but it's the only workaround for now.
-	# MAYBE: Simplify this
+	# FUTURE: Simplify this
+	#------------------------------------------------------------------------
 	
 	my $timezone = $date;
 	$timezone =~ s/.*T.{12}(.){1}(\d\d):(\d\d)/$1$2$3/; # Extract the time zone
 	$timezone = (substr($timezone, 0, 1) eq '+') ? substr($timezone,1,length($timezone)) : $timezone; # Cut off the initial + if there is one
 
-	# Uncomment the next line if you want to override the time zone manually. This will kill DST issues, unfortunately
+	# Uncomment the next line if you want to override the time zone manually. This will kill DST calculations, unfortunately
 	#$timezone = "0200"; # Use "NNNN" for +NN:NN, "-NNNN" for -NN:NN
 	
-	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
-	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), $timezone);
-	$date =~ s/[ ]{2,10}/ /gis;
+	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g; # Clear out the miliseconds and everything that comes after in the timestamp
+	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), $timezone); # See http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm for time2str formatting variables
+	#$date =~ s/[ ]{2,10}/ /gis;
 	return $date;
 }
 
 
 
-
-#############################################################################
+#----------------------------------------------------------------------------
 #
-#	Function name: cleanText
+#	Sub name: cleanText
 #	Purpose: Take out html tags, remove spaces, and generally clean up a string
 #	Incoming parameters: Text to be cleaned as $text, optional $type - use 'comment' to put appropriate styles in comments
 #	Returns: Cleaned up text
 #	Dependencies: None
 #
-#############################################################################
+#----------------------------------------------------------------------------
 
-# TODO: Separate this into tag cleaning, line and space removing functions - maybe that'll fix it
+# FIXME: Figure out why this isn't completely working. Doesn't work with newlines, since they apparently don't exist?
 
 sub cleanText {
 	my $text = $_[0];
 	my $type = defined $_[1] ? $_[1] : 'post'; # Makes the default text type 'post'
 	
+	# If cleaning a comment, use the comment styles - otherwise use regular styles
 	my $IDcleanpara = ($type eq 'comment') ? $IDcommentpara : $IDparagraph ;
 	
 	# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
-	# TODO: Make paragraph tags based on whether it is text or a comment - extra variable to the function?
-	# Find any sequence of <br>s and replace with a new line
+	# Find any sequence of <br>s and replace with a new line; replace <p>s with ID tags
 	$text =~ s/(<br\s?[\/]?>)+/\n$IDcleanpara/gis;
 	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDcleanpara$1/gis;
 	
-	# Find href="" in all links and linked text - strip out the rest of the HTML 
+	# Find href="" in all links and linked text - strip out the rest of the HTML - put link in footnote
 	$text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2$IDfootstart$1$IDfootend/gis; # Both quotes (href="" & href='')
 	
 	# Find images, keep src link, strip the rest out
 	$text =~ s/<img\s[^>]*src=["']+?([^["']*)["']+?[^>]*>/{$1}/gis;
 	
 	# Make any span with font-size in it smaller. It's not all really small, and there are different levels blogger uses. 78% seems to be the most common
-	# MAYBE: Make me more flexible - find the current and historical blogger sizes
+	# FUTURE: Make me more flexible - find the current and historical blogger sizes
 	$text =~ s/<span[^>]*?font-size[^>]*>(.*?)<\/span>/$IDsmall$1$IDcharend/gis;
 	
 	# Take care of <li>s
 	$text =~ s/<li[^>]*>(.*?)<\/li>/\n$IDlist$1/gis;
 	
-	# TODO: Work with spans for bold, italic, superscript, etc.
 	# Italicize text between <i>, <em>, and any span with the word italic in any attribute
 	$text =~ s/<span[^>]*?italic[^>]*>(.*?)<\/span>/$IDitalic$1$IDcharend/gis;
 	$text =~ s/<i>(.*?)<\/i>/$IDitalic$1$IDcharend/gis; 
@@ -160,43 +177,40 @@ sub cleanText {
 	$text =~ s/<b>(.*?)<\/b>/$IDbold$1$IDcharend/gis; 
 	$text =~ s/<strong>(.*?)<\/strong>/$IDbold$1$IDcharend/gis;
 	
-	#FIXME: ID can't handle nested character styles - combine them when necessary
+	# FIXME: ID can't handle nested character styles - combine them when necessary
 	# $text =~ s/\Q$IDsmall\Q$IDitalic/$IDsmallitalic/gi;
 	# $text =~ s/\Q$IDcharend\Q$IDcharend/$IDcharend/gi;
 	# $text =~ s/<CharStyle:Small><CharStyle:Italic>/$IDsmallitalic/gi;
 	# $text =~ s/<CharStyle:><CharStyle:>/$IDcharend/gi;
 	
-	$text =~ s/<span[^>]*>(.*?)<\/span>/$1/gis;	
+	# Clear out any tags that aren't the InDesign tags, take out the dummy ~~ and rebuild the actual tag
+	$text =~ s/<[^~~](?:[^>'"]*|(['"]).*?\1)*>//gs;
+	$text =~ s/<~~/</gs;
 	
-	# TODO: Clear out all other tags
-	#$text =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently - 
-	$text =~ s/<[^ID](?:[^>'"]*|(['"]).*?\1)*>//gs;
-	$text =~ s/<ID/</gs;
-	
-	# Remove any extra spaces FIXME: Clear up final settings, like gsi - when are those really necessary? 
+	# Remove any extra spaces
 	$text =~ s/[ ]{2,10}/ /gis;
 	
 	# FIXME: Clear out orphan ID tags 
-	#$text =~ s/^<[^<]+?>$//g;
-	#$text =~ s/^<.*?[^>]>$//gis;
-	# Get rid of blank lines
-	#$text =~ s/^\n$//g;
+	# $text =~ s/^<[^<]+?>$//g;
+	# $text =~ s/^<.*?[^>]>$//gis;
+	
+	# FIXME: Get rid of blank lines
+	# $text =~ s/^\n$//g;
 	
 	return $text;
 }
 
 
 
-
-#############################################################################
+#----------------------------------------------------------------------------
 #
-#	Function name: organizeComments
+#	Sub name: organizeComments
 #	Purpose: Parse the XML file for all comments and save them in an indexed hash
 #	Incoming parameters: None
 #	Returns: %comments hash
 #	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
 #
-#############################################################################
+#----------------------------------------------------------------------------
 
 sub organizeComments {
 	my %comments;
@@ -207,8 +221,8 @@ sub organizeComments {
 			my $author = $xc->findvalue('./post:author/post:name', $comment);
 			my $date = cleanDate($xc->findvalue('./post:published', $comment));
 			my $posturl = $xc->findvalue('./*[name()="thr:in-reply-to"]/@href', $comment);
+			# Save comment with temporary ~~~ delimiting
 			my $fullComment = "$date~~~$author~~~$content";
-			#$fullComment = cleanText($fullComment, 'comment');
 		
 			# Store it all in the hash
 			push @{$comments{$posturl}}, $fullComment;
@@ -220,16 +234,15 @@ sub organizeComments {
 
 
 
-
-#############################################################################
+#----------------------------------------------------------------------------
 #
-#	Function name: reorganizePosts
+#	Sub name: reorganizePosts
 #	Purpose: Parse the XML file for all blog posts, query the %comments and connect matching comments to the post, tag and clean the text
 #	Incoming parameters: None
 #	Returns: $output - cleaned, formatted, and tagged text
 #	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
 #
-#############################################################################
+#----------------------------------------------------------------------------
 
 sub reorganizePosts {
 
@@ -245,9 +258,9 @@ sub reorganizePosts {
 		if (($type =~ /post/) && ($checkyear eq $setyear)) {
 		
 		
-			###########################
+			#--------------------------
 			# Get text out of the XML
-			###########################
+			#--------------------------
 			
 			my $title = ($xc->findvalue('./post:title', $entry) eq '') ? 'Untitled post' : $xc->findvalue('./post:title', $entry);
 			my $content = ($xc->findvalue('./post:content', $entry) eq '') ? 'No content in the post' : $xc->findvalue('./post:content', $entry);
@@ -261,13 +274,13 @@ sub reorganizePosts {
 				$tags .= ucfirst(($tag->to_literal)) . ", ";
 			}
 
-			# MAYBE: Indexing - only with tags?
+			# FUTURE: Indexing
 			# Possible ID index syntax = <IndexEntry:=<IndexEntryType:IndexPageEntry><IndexEntryRangeType:kCurrentPage><IndexEntryDisplayString:Test>>
 			
 			
-			###################################
+			#----------------------------------
 			# Put extracted text into $output
-			###################################
+			#----------------------------------
 			
 			$output .= "\n\n$IDtitle$title\n"; 	# Title
 			$output .= "$IDurl$posturl\n"; 		# URL
@@ -282,9 +295,9 @@ sub reorganizePosts {
 			$output .= "$IDfirst$content\n";	# Content with ID First paragraph style
 		
 		
-			############################
-			# Add comments to the post
-			############################
+			#-----------------------------------------
+			# Add corresponding comments to the post
+			#-----------------------------------------
 		 
 			my $comments = '';
 		
@@ -293,9 +306,9 @@ sub reorganizePosts {
 				my $commentDate = $process_comment[0];
 				my $commentAuthor = $process_comment[1];
 				my $commentBody = $process_comment[2];
-				$comments .= "$IDcommentauthor$commentAuthor\n";
-				$comments .= "$IDcommentdate$commentDate\n";
-				$comments .= "$IDcommentpara$commentBody\n";
+				$comments .= "$IDcommentauthor$commentAuthor\n";	# Comment author
+				$comments .= "$IDcommentdate$commentDate\n";		# Comment date
+				$comments .= "$IDcommentpara$commentBody\n";		# Comment text
 			}
 		
 			# If there are comments print them out
@@ -312,11 +325,11 @@ sub reorganizePosts {
 
 
 
+#--------------------------------------------------
+# Parse the XML, clean up the text and output it.
+#--------------------------------------------------
 
-########################################
-# Print final, cleaned, formatted text
-########################################
-
+# Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
 # open(OUTPUT, ">:encoding(utf16le)", "output.txt");
 # print OUTPUT reorganizePosts;
 print reorganizePosts;
