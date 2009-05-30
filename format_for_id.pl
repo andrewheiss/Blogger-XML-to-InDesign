@@ -18,7 +18,7 @@ use XML::LibXML::XPathContext;
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
 binmode(STDOUT, ':utf8');
 
-# Select what year to extract
+# Select what year to extract MAYBE: Give a range of dates rather than just a year
 my $setyear = "2009";
 
 # Connect to file and start parsing it
@@ -50,9 +50,27 @@ my $IDsmall = "<IDCharStyle:Small>";
 my $IDsmallitalic = "<IDCharStyle:Small italic>";
 
 
-#####################
-# Cleanup functions
-#####################
+
+
+#############################################################################
+#
+#	Function name: getYear
+#	Purpose: Gets only the year out of Blogger's date to be used in reorganizePosts() and limit post extraction to one year
+#	Incoming parameters: Blogger's date - 2008-02-29T08:50:00.000-08:00
+#	Returns: A four digit year
+#	Dependencies: Date::Format, Date::Parse
+#
+#############################################################################
+
+sub getYear($) {
+	my $date= $_[0];
+	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
+	$date = time2str("%Y", str2time($date), "0");
+	return $date;
+}
+
+
+
 
 #############################################################################
 #
@@ -76,6 +94,7 @@ sub cleanDate($) {
 	# The best solution is to export the blog while it is set in the desired timezone. 
 	# If there are mutliple timezones in the year, download several copies of the backup, run this on all of them, and combine them in InDesign as necessary
 	# It's extremely messy and convoluted but it's the only workaround for now.
+	# MAYBE: Simplify this
 	
 	my $timezone = $date;
 	$timezone =~ s/.*T.{12}(.){1}(\d\d):(\d\d)/$1$2$3/; # Extract the time zone
@@ -90,12 +109,7 @@ sub cleanDate($) {
 	return $date;
 }
 
-sub getYear($) {
-	my $date= $_[0];
-	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
-	$date = time2str("%Y", str2time($date), "0");
-	return $date;
-}
+
 
 
 #############################################################################
@@ -129,7 +143,7 @@ sub cleanText {
 	$text =~ s/<img\s[^>]*src=["']+?([^["']*)["']+?[^>]*>/{$1}/gis;
 	
 	# Make any span with font-size in it smaller. It's not all really small, and there are different levels blogger uses. 78% seems to be the most common
-	# TODO: Make me more flexible - find the current and historical blogger sizes
+	# MAYBE: Make me more flexible - find the current and historical blogger sizes
 	$text =~ s/<span[^>]*?font-size[^>]*>(.*?)<\/span>/$IDsmall$1$IDcharend/gis;
 	
 	# Take care of <li>s
@@ -154,13 +168,6 @@ sub cleanText {
 	
 	$text =~ s/<span[^>]*>(.*?)<\/span>/$1/gis;	
 	
-	return $text;
-}
-
-# Hopefully this sub is temporary until I figure out what the best order for finding, replacing, and saving is
-sub stripTags {
-	my $text = $_[0];
-	
 	# TODO: Clear out all other tags
 	#$text =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently - 
 	$text =~ s/<[^ID](?:[^>'"]*|(['"]).*?\1)*>//gs;
@@ -179,99 +186,137 @@ sub stripTags {
 }
 
 
-##########################################################
-# Parse the xml for all comments and save them in a hash
-##########################################################
 
-my %comments;
-foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
-	my $type = $xc->findvalue('./post:category/@term', $comment);
-	if ($type =~ /comment/) {
-		my $content = ($xc->findvalue('./post:content', $comment) eq '') ? 'No content in the post' : $xc->findvalue('./post:content', $comment);
-		my $author = $xc->findvalue('./post:author/post:name', $comment);
-		my $date = cleanDate($xc->findvalue('./post:published', $comment));
-		my $posturl = $xc->findvalue('./*[name()="thr:in-reply-to"]/@href', $comment);
-		my $fullComment = "$date~~~$author~~~$content";
-		$fullComment = cleanText($fullComment, 'comment');
+
+#############################################################################
+#
+#	Function name: organizeComments
+#	Purpose: Parse the XML file for all comments and save them in an indexed hash
+#	Incoming parameters: None
+#	Returns: %comments hash
+#	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
+#
+#############################################################################
+
+sub organizeComments {
+	my %comments;
+	foreach my $comment (reverse($xc->findnodes('//post:entry'))) {
+		my $type = $xc->findvalue('./post:category/@term', $comment);
+		if ($type =~ /comment/) {
+			my $content = ($xc->findvalue('./post:content', $comment) eq '') ? 'No content in the post' : $xc->findvalue('./post:content', $comment);
+			my $author = $xc->findvalue('./post:author/post:name', $comment);
+			my $date = cleanDate($xc->findvalue('./post:published', $comment));
+			my $posturl = $xc->findvalue('./*[name()="thr:in-reply-to"]/@href', $comment);
+			my $fullComment = "$date~~~$author~~~$content";
+			#$fullComment = cleanText($fullComment, 'comment');
 		
-		# Store it all in the hash
-		push @{$comments{$posturl}}, $fullComment;
+			# Store it all in the hash
+			push @{$comments{$posturl}}, $fullComment;
+		}
 	}
+	
+	return %comments;
 }
 
 
-####################################
-# Clean up and organize blog posts
-####################################
 
-# Start InDesign tagged text
-my $output = $IDstart;
 
-# Reverse and loop through all the blog entries in the XML file
-foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
-	my $type =  $xc->findvalue('./post:category[1]/@term', $entry);
-	my $date = $xc->findvalue('./post:published', $entry);
-	my $checkyear = getYear($date);
-	if (($type =~ /post/) && ($checkyear eq $setyear)) {
-		my $title = ($xc->findvalue('./post:title', $entry) eq '') ? 'Untitled post' : $xc->findvalue('./post:title', $entry);
-		my $content = ($xc->findvalue('./post:content', $entry) eq '') ? 'No content in the post' : $xc->findvalue('./post:content', $entry);
-		my $author = $xc->findvalue('./post:author/post:name', $entry);
-		$date = cleanDate($date);
-		my $commentsNum = $xc->findvalue('./post:link[2]/@title', $entry);
-		my $posturl = $xc->findvalue('./post:link[5]/@href', $entry);
-		
-		# Get all the post:category entries except [1], since that indicates the type of entry
-		my $tags = '';
-		foreach my $tag ($xc->findnodes('./post:category[position()>1]/@term', $entry)) {
-			$tags .= ucfirst(($tag->to_literal)) . ", ";
-		}
+#############################################################################
+#
+#	Function name: reorganizePosts
+#	Purpose: Parse the XML file for all blog posts, query the %comments and connect matching comments to the post, tag and clean the text
+#	Incoming parameters: None
+#	Returns: $output - cleaned, formatted, and tagged text
+#	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
+#
+#############################################################################
 
-		# TODO: Indexing - only with tags?
-		# Possible ID index syntax = <IndexEntry:=<IndexEntryType:IndexPageEntry><IndexEntryRangeType:kCurrentPage><IndexEntryDisplayString:Test>>
-		
-		$output .= "\n\n$IDtitle$title\n";
-		$output .= "$IDurl$posturl\n";
-		$output .= "$IDdate$date\n";
-		$output .= "$IDauthor$author\n";
-		
-		if ($tags ne '') {
-			$tags = substr($tags, 0, -2); # Cut off trailing comma and space
-			$output .= "$IDtags$tags\n";
-		}
-		
-		$content = cleanText($content, 'post');
-		
-		# Print the final content variable, preceded with ID First paragraph style
-		$output .= "$IDfirst$content\n";
+sub reorganizePosts {
+
+	my %comments = organizeComments;
+
+	# Start InDesign tagged text
+	my $output = $IDstart;
+
+	# Reverse and loop through all the blog entries in the XML file
+	foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
+		my $type =  $xc->findvalue('./post:category[1]/@term', $entry);
+		my $checkyear = getYear($xc->findvalue('./post:published', $entry));
+		if (($type =~ /post/) && ($checkyear eq $setyear)) {
 		
 		
-		############################
-		# Add comments to the post
-		############################
+			###########################
+			# Get text out of the XML
+			###########################
+			
+			my $title = ($xc->findvalue('./post:title', $entry) eq '') ? 'Untitled post' : $xc->findvalue('./post:title', $entry);
+			my $content = ($xc->findvalue('./post:content', $entry) eq '') ? 'No content in the post' : $xc->findvalue('./post:content', $entry);
+			my $author = $xc->findvalue('./post:author/post:name', $entry);
+			my $date = cleanDate($xc->findvalue('./post:published', $entry));
+			my $posturl = $xc->findvalue('./post:link[5]/@href', $entry);
+		
+			# Get all the post:category entries except [1], since that indicates the type of entry
+			my $tags = '';
+			foreach my $tag ($xc->findnodes('./post:category[position()>1]/@term', $entry)) {
+				$tags .= ucfirst(($tag->to_literal)) . ", ";
+			}
+
+			# MAYBE: Indexing - only with tags?
+			# Possible ID index syntax = <IndexEntry:=<IndexEntryType:IndexPageEntry><IndexEntryRangeType:kCurrentPage><IndexEntryDisplayString:Test>>
+			
+			
+			###################################
+			# Put extracted text into $output
+			###################################
+			
+			$output .= "\n\n$IDtitle$title\n"; 	# Title
+			$output .= "$IDurl$posturl\n"; 		# URL
+			$output .= "$IDdate$date\n"; 		# Date
+			$output .= "$IDauthor$author\n"; 	# Author
+		
+			if ($tags ne '') { # Tags
+				$tags = substr($tags, 0, -2); 	# Cut off trailing comma and space
+				$output .= "$IDtags$tags\n";
+			}
+		
+			$output .= "$IDfirst$content\n";	# Content with ID First paragraph style
+		
+		
+			############################
+			# Add comments to the post
+			############################
 		 
-		my $comments = '';
+			my $comments = '';
 		
-		foreach my $c (@{$comments{$posturl}}) {
-			my @process_comment = split(/~~~/, $c);
-			my $commentDate = $process_comment[0];
-			my $commentAuthor = $process_comment[1];
-			my $commentBody = $process_comment[2];
-			$comments .= "$IDcommentauthor$commentAuthor\n";
-			$comments .= "$IDcommentdate$commentDate\n";
-			$comments .= "$IDcommentpara$commentBody\n";
-		}
+			foreach my $c (@{$comments{$posturl}}) {
+				my @process_comment = split(/~~~/, $c);
+				my $commentDate = $process_comment[0];
+				my $commentAuthor = $process_comment[1];
+				my $commentBody = $process_comment[2];
+				$comments .= "$IDcommentauthor$commentAuthor\n";
+				$comments .= "$IDcommentdate$commentDate\n";
+				$comments .= "$IDcommentpara$commentBody\n";
+			}
 		
-		# If there are comments print them out
-		if ($comments ne '') {
-			$output .= $comments;
+			# If there are comments print them out
+			if ($comments ne '') {
+				$output .= $comments;
+			}
 		}
 	}
+	
+	$output = cleanText($output);
+	
+	return $output;
 }
 
-# Do one final pass with stripTags
-$output = stripTags($output);
 
-# Print everything out
+
+
+########################################
+# Print final, cleaned, formatted text
+########################################
+
 # open(OUTPUT, ">:encoding(utf16le)", "output.txt");
-# print OUTPUT $output;
-print $output;
+# print OUTPUT reorganizePosts;
+print reorganizePosts;
