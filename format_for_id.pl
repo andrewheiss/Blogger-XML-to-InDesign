@@ -13,9 +13,14 @@ use Date::Format; #http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm
 use Date::Parse;
 use XML::LibXML;
 use XML::LibXML::XPathContext;
+use Data::Dumper;
+
 
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
 binmode(STDOUT, ':utf8');
+
+# Select what year to extract
+my $setyear = "2009";
 
 # Connect to file and start parsing it
 my $file = 'files/blog-tiny.xml';
@@ -23,9 +28,6 @@ my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
-
-
-my $setyear = "2009";
 
 # InDesign tags - All these styles must be present in the InDesign file
 my $IDstart = "<UNICODE-MAC>\n";
@@ -35,6 +37,7 @@ my $IDdate = "<ParaStyle:Post Date>";
 my $IDauthor = "<ParaStyle:Post Author>";
 my $IDparagraph = "<IDParaStyle:Main text>";
 my $IDfirst = "<ParaStyle:First paragraph>";
+my $IDtags = "<ParaStyle:Post tags>";
 my $IDcommentpara = "<ParaStyle:Comments\\:Comment text>";
 my $IDcommentauthor = "<ParaStyle:Comments\\:Comment author>";
 my $IDcommentdate = "<ParaStyle:Comments\\:Comment date>";
@@ -189,15 +192,25 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		$date = cleanDate($date);
 		my $commentsNum = $xc->findvalue('./post:link[2]/@title', $entry);
 		my $posturl = $xc->findvalue('./post:link[5]/@href', $entry);
-		# TODO: Get categories
-		# Get all the post:category entries except [1]
-		# TODO: Indexing
+		
+		# Get all the post:category entries except [1], since that indicates the type of entry
+		my $tags = '';
+		foreach my $tag ($xc->findnodes('./post:category[position()>1]/@term', $entry)) {
+			$tags .= ucfirst(($tag->to_literal)) . ", ";
+		}
+
+		# TODO: Indexing - only with tags?
 		# Possible ID index syntax = <IndexEntry:=<IndexEntryType:IndexPageEntry><IndexEntryRangeType:kCurrentPage><IndexEntryDisplayString:Test>>
 		
 		$output .= "\n\n$IDtitle$title\n";
 		$output .= "$IDurl$posturl\n";
 		$output .= "$IDdate$date\n";
 		$output .= "$IDauthor$author\n";
+		
+		if ($tags ne '') {
+			$tags = substr($tags, 0, -2); # Cut off trailing comma and space
+			$output .= "$IDtags$tags\n";
+		}
 		
 		$content = cleanText($content, 'post');
 		
