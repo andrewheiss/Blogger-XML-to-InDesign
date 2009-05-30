@@ -13,8 +13,6 @@ use Date::Format; #http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm
 use Date::Parse;
 use XML::LibXML;
 use XML::LibXML::XPathContext;
-use Data::Dumper;
-
 
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
 binmode(STDOUT, ':utf8');
@@ -38,9 +36,9 @@ my $IDauthor = "<ParaStyle:Post Author>";
 my $IDparagraph = "<IDParaStyle:Main text>";
 my $IDfirst = "<ParaStyle:First paragraph>";
 my $IDtags = "<ParaStyle:Post tags>";
-my $IDcommentpara = "<ParaStyle:Comments\\:Comment text>";
-my $IDcommentauthor = "<ParaStyle:Comments\\:Comment author>";
-my $IDcommentdate = "<ParaStyle:Comments\\:Comment date>";
+my $IDcommentpara = "<IDParaStyle:Comments\\:Comment text>";
+my $IDcommentauthor = "<IDParaStyle:Comments\\:Comment author>";
+my $IDcommentdate = "<IDParaStyle:Comments\\:Comment date>";
 my $IDfootstart = "<IDcPosition:Superscript><IDFootnoteStart:>";
 my $IDfootend = "<IDFootnoteEnd:><IDcPosition:>";
 my $IDcharend = "<IDCharStyle:>";
@@ -61,14 +59,27 @@ my $IDsmallitalic = "<IDCharStyle:Small italic>";
 #	Incoming parameters: Blogger's date - 2008-02-29T08:50:00.000-08:00
 #	Returns: Cleaned up date
 #	Dependencies: Date::Format, Date::Parse
-#	FIXME: Get the time zone right
 #
 #############################################################################
 
 sub cleanDate($) {
 	my $date= $_[0];
+	
+	# Time zone issues:
+	# Blogger decides the time zone offset based on the global time zone blog setting rather than GMT
+	# So, if you publish a post in MST, the timestamp will end in -07:00
+	# If you change the time zone setting on your blog, all previous posts will change as well; the post done in MST will change to the new zone
+	# To deal with this, either change the time zone setting in the Blogger settings to the desired time zone before you export the full file
+	# Or, set the time zone manually as $timezone
+	my $timezone = $date;
+	$timezone =~ s/.*T.{12}(.){1}(\d\d):(\d\d)/$1$2$3/; # Extract the time zone
+	$timezone = (substr($timezone, 0, 1) eq '+') ? substr($timezone,1,length($timezone)) : $timezone; # Cut off the initial + if there is one
+
+	# Uncomment the next line if you want to override the time zone manually
+	# $timezone = "0700"; # Use "NNNN" for +NN:NN, "-NNNN" for -NN:NN
+	
 	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
-	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "0");
+	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "-0700");
 	$date =~ s/[ ]{2,10}/ /gis;
 	return $date;
 }
