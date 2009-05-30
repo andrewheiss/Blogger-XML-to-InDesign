@@ -9,6 +9,7 @@ use diagnostics;
 ##################
 
 # Dependent packages
+# To get to the CPAN shell: perl -MCPAN -e shell || install Package::Name
 use Date::Format; #http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm
 use Date::Parse;
 use XML::LibXML;
@@ -36,6 +37,7 @@ my $IDauthor = "<IDParaStyle:Post Author>";
 my $IDparagraph = "<IDParaStyle:Main text>";
 my $IDfirst = "<IDParaStyle:First paragraph>";
 my $IDtags = "<IDParaStyle:Post tags>";
+my $IDlist = "<IDParaStyle:List>";
 my $IDcommentpara = "<IDParaStyle:Comments\\:Comment text>";
 my $IDcommentauthor = "<IDParaStyle:Comments\\:Comment author>";
 my $IDcommentdate = "<IDParaStyle:Comments\\:Comment date>";
@@ -127,8 +129,11 @@ sub cleanText {
 	$text =~ s/<img\s[^>]*src=["']+?([^["']*)["']+?[^>]*>/{$1}/gis;
 	
 	# Make any span with font-size in it smaller. It's not all really small, and there are different levels blogger uses. 78% seems to be the most common
-	# TODO: Make me more flexible - find all the different current and historical blogger sizes
+	# TODO: Make me more flexible - find the current and historical blogger sizes
 	$text =~ s/<span[^>]*?font-size[^>]*>(.*?)<\/span>/$IDsmall$1$IDcharend/gis;
+	
+	# Take care of <li>s
+	$text =~ s/<li[^>]*>(.*?)<\/li>/\n$IDlist$1/gis;
 	
 	# TODO: Work with spans for bold, italic, superscript, etc.
 	# Italicize text between <i>, <em>, and any span with the word italic in any attribute
@@ -166,6 +171,7 @@ sub stripTags {
 	
 	# FIXME: Clear out orphan ID tags 
 	#$text =~ s/^<[^<]+?>$//g;
+	#$text =~ s/^<.*?[^>]>$//gis;
 	# Get rid of blank lines
 	#$text =~ s/^\n$//g;
 	
