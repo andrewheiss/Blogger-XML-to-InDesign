@@ -28,14 +28,14 @@ my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
 
 # InDesign tags - All these styles must be present in the InDesign file
-my $IDstart = "<UNICODE-MAC>\n";
-my $IDtitle = "<ParaStyle:Post Title>";
-my $IDurl = "<ParaStyle:Post URL>";			
-my $IDdate = "<ParaStyle:Post Date>";
-my $IDauthor = "<ParaStyle:Post Author>";
+my $IDstart = "<IDUNICODE-MAC>\n";
+my $IDtitle = "<IDParaStyle:Post Title>";
+my $IDurl = "<IDParaStyle:Post URL>";			
+my $IDdate = "<IDParaStyle:Post Date>";
+my $IDauthor = "<IDParaStyle:Post Author>";
 my $IDparagraph = "<IDParaStyle:Main text>";
-my $IDfirst = "<ParaStyle:First paragraph>";
-my $IDtags = "<ParaStyle:Post tags>";
+my $IDfirst = "<IDParaStyle:First paragraph>";
+my $IDtags = "<IDParaStyle:Post tags>";
 my $IDcommentpara = "<IDParaStyle:Comments\\:Comment text>";
 my $IDcommentauthor = "<IDParaStyle:Comments\\:Comment author>";
 my $IDcommentdate = "<IDParaStyle:Comments\\:Comment date>";
@@ -71,15 +71,19 @@ sub cleanDate($) {
 	# If you change the time zone setting on your blog, all previous posts will change as well; the post done in MST will change to the new zone
 	# To deal with this, either change the time zone setting in the Blogger settings to the desired time zone before you export the full file
 	# Or, set the time zone manually as $timezone
+	# The best solution is to export the blog while it is set in the desired timezone. 
+	# If there are mutliple timezones in the year, download several copies of the backup, run this on all of them, and combine them in InDesign as necessary
+	# It's extremely messy and convoluted but it's the only workaround for now.
+	
 	my $timezone = $date;
 	$timezone =~ s/.*T.{12}(.){1}(\d\d):(\d\d)/$1$2$3/; # Extract the time zone
 	$timezone = (substr($timezone, 0, 1) eq '+') ? substr($timezone,1,length($timezone)) : $timezone; # Cut off the initial + if there is one
 
-	# Uncomment the next line if you want to override the time zone manually
-	# $timezone = "0700"; # Use "NNNN" for +NN:NN, "-NNNN" for -NN:NN
+	# Uncomment the next line if you want to override the time zone manually. This will kill DST issues, unfortunately
+	#$timezone = "0200"; # Use "NNNN" for +NN:NN, "-NNNN" for -NN:NN
 	
 	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
-	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), "-0700");
+	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), $timezone);
 	$date =~ s/[ ]{2,10}/ /gis;
 	return $date;
 }
@@ -143,7 +147,14 @@ sub cleanText {
 	# $text =~ s/<CharStyle:Small><CharStyle:Italic>/$IDsmallitalic/gi;
 	# $text =~ s/<CharStyle:><CharStyle:>/$IDcharend/gi;
 	
-	$text =~ s/<span[^>]*>(.*?)<\/span>/$1/gis;
+	$text =~ s/<span[^>]*>(.*?)<\/span>/$1/gis;	
+	
+	return $text;
+}
+
+# Hopefully this sub is temporary until I figure out what the best order for finding, replacing, and saving is
+sub stripTags {
+	my $text = $_[0];
 	
 	# TODO: Clear out all other tags
 	#$text =~ s/<(?:[^>'"]*|(['"]).*?\1)*>//gs; # Kill all tags violently - 
@@ -156,11 +167,10 @@ sub cleanText {
 	# FIXME: Clear out orphan ID tags 
 	#$text =~ s/^<[^<]+?>$//g;
 	# Get rid of blank lines
-	#$text =~ s/^\n$//g;	
+	#$text =~ s/^\n$//g;
 	
 	return $text;
 }
-
 
 
 ##########################################################
@@ -251,6 +261,9 @@ foreach my $entry (reverse($xc->findnodes('//post:entry'))) {
 		}
 	}
 }
+
+# Do one final pass with stripTags
+$output = stripTags($output);
 
 # Print everything out
 # open(OUTPUT, ">:encoding(utf16le)", "output.txt");
