@@ -111,7 +111,7 @@ sub cleanDate($) {
 	# Or, set the time zone manually as $timezone
 	# The best solution is to export the blog while it is set in the desired timezone. 
 	# If there are mutliple timezones in the year, download several copies of the backup, run this on all of them, and combine them in InDesign as necessary
-	# It's extremely messy and convoluted but it's the only workaround for now.
+	# It's extremely messy and convoluted but it's the only workaround I've found for now.
 	# FUTURE: Simplify this
 	#------------------------------------------------------------------------
 	
@@ -124,7 +124,6 @@ sub cleanDate($) {
 	
 	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g; # Clear out the miliseconds and everything that comes after in the timestamp
 	$date = time2str("%A, %B %e, %Y - %l:%M %p", str2time($date), $timezone); # See http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm for time2str formatting variables
-	#$date =~ s/[ ]{2,10}/ /gis;
 	return $date;
 }
 
