@@ -186,6 +186,8 @@ sub cleanText {
 	$text =~ s/<[^~~](?:[^>'"]*|(['"]).*?\1)*>//gs;
 	$text =~ s/<~~/</gs;
 	
+	# FUTURE: Add replacements for em, en dashes, ellipses with non breaking spaces
+	
 	# Remove any extra spaces
 	$text =~ s/[ ]{2,10}/ /gis;
 	
