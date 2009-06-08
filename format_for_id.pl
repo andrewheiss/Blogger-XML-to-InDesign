@@ -22,10 +22,10 @@ use XML::LibXML::XPathContext;
 #-----------------------
 
 # Select what year to extract FUTURE: Allow for a range of dates rather than just a year
-my $setyear = "2009";
+my $setyear = "2006";
 
 # Set the XML file to be parsed and cleaned FUTURE: Maybe allow this to be run via command line arguments as well
-my $file = 'files/blog-tiny-typ.xml';
+my $file = 'files/blog-huge.xml';
 
 
 #----------------------------
@@ -149,9 +149,11 @@ sub cleanText {
 	my $IDcleanpara = ($type eq 'comment') ? $IDcommentpara : $IDparagraph ;
 	
 	# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
-	# Find any sequence of <br>s and replace with a new line; replace <p>s with ID tags
+	# Find any sequence of <br>s and replace with a new line; replace <p>s with ID tags FIXME: Fix multi paragraph comments
 	$text =~ s/(<br\s?[\/]?>)+/\n$IDcleanpara/gis;
 	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDcleanpara$1/gis;
+	
+	# FUTURE: Take care of heading tags
 	
 	# Find href="" in all links and linked text - strip out the rest of the HTML - put link in footnote
 	$text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2$IDfootstart$1$IDfootend/gis; # Both quotes (href="" & href='')
@@ -188,12 +190,14 @@ sub cleanText {
 	# $text =~ s/<CharStyle:Small><CharStyle:Italic>/$IDsmallitalic/gi;
 	# $text =~ s/<CharStyle:><CharStyle:>/$IDcharend/gi;
 	
-	# Clear out any tags that aren't the InDesign tags, take out the dummy ~~ and rebuild the actual tag
-	$text =~ s/<[^~~](?:[^>'"]*|(['"]).*?\1)*>//gs;
-	$text =~ s/<~~/</gs;
+	# Clear out any HTML comments
+	# FIXME: Get rid of the weird html Word adds
+	$text =~ s/<!--.*?-->//gis;
 	
 	# Remove any extra spaces
 	$text =~ s/[ ]{2,10}/ /gis;
+	
+	#FIXME: Random html entities: &gt; &#39;
 	
 	# FIXME: Clear out orphan ID tags 
 	# $text =~ s/^<[^<]+?>$//g;
@@ -206,6 +210,25 @@ sub cleanText {
 }
 
 
+#----------------------------------------------------------------------------
+#
+#	Sub name: stripTags
+#	Purpose: Remove all extraneous HTML tags
+#	Incoming parameters: None
+#	Returns: %comments hash
+#	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
+#
+#----------------------------------------------------------------------------
+
+sub stripTags {
+	my $text = $_[0];
+	
+	# Clear out any tags that aren't the InDesign tags, take out the dummy ~~ and rebuild the actual tag
+	$text =~ s/<[^~~](?:[^>'"]*|(['"]).*?\1)*>//gs;
+	$text =~ s/<~~/</gs;
+	
+	return $text;
+}
 
 #----------------------------------------------------------------------------
 #
@@ -299,7 +322,8 @@ sub reorganizePosts {
 		
 			$output .= "$IDfirst$content\n";	# Content with ID First paragraph style
 		
-		
+			$output = cleanText($output);
+			
 			#-----------------------------------------
 			# Add corresponding comments to the post
 			#-----------------------------------------
@@ -318,12 +342,12 @@ sub reorganizePosts {
 		
 			# If there are comments print them out
 			if ($comments ne '') {
-				$output .= $comments;
+				$output .= cleanText($comments,"comment");
 			}
 		}
 	}
 	
-	$output = cleanText($output);
+	$output = stripTags($output);
 	
 	return $output;
 }
