@@ -25,7 +25,7 @@ use XML::LibXML::XPathContext;
 my $setyear = "2009";
 
 # Set the XML file to be parsed and cleaned FUTURE: Maybe allow this to be run via command line arguments as well
-my $file = 'files/blog-tiny.xml';
+my $file = 'files/blog-tiny-typ.xml';
 
 
 #----------------------------
@@ -176,6 +176,12 @@ sub cleanText {
 	$text =~ s/<b>(.*?)<\/b>/$IDbold$1$IDcharend/gis; 
 	$text =~ s/<strong>(.*?)<\/strong>/$IDbold$1$IDcharend/gis;
 	
+	# Add em dashes (2014), en dashes (2013), and ellipses (..., . . .,  or 2026) with non breaking spaces (00A0)
+	$text =~ s/--| - /\x{2014}/gis;
+	$text =~ s/([0-9])-([0-9])/$1\x{2013}$2/gis;
+	$text =~ s/([\.\?!,:;])[ ]?\.[ ]?\.[ ]?\.[ ]?|([\.\?!,:;])[ ]?\x{2026}[ ]?/$1\x{00A0}.\x{00A0}.\x{00A0}. /gis; # 4 dot elipses (after punctuation)
+	$text =~ s/[ ]?\.[ ]?\.[ ]?\.[ ]?|[ ]?\x{2026}[ ]?/\x{00A0}.\x{00A0}.\x{00A0}. /gis; # 3 dot elipses
+	
 	# FIXME: ID can't handle nested character styles - combine them when necessary
 	# $text =~ s/\Q$IDsmall\Q$IDitalic/$IDsmallitalic/gi;
 	# $text =~ s/\Q$IDcharend\Q$IDcharend/$IDcharend/gi;
@@ -185,8 +191,6 @@ sub cleanText {
 	# Clear out any tags that aren't the InDesign tags, take out the dummy ~~ and rebuild the actual tag
 	$text =~ s/<[^~~](?:[^>'"]*|(['"]).*?\1)*>//gs;
 	$text =~ s/<~~/</gs;
-	
-	# FUTURE: Add replacements for em, en dashes, ellipses with non breaking spaces
 	
 	# Remove any extra spaces
 	$text =~ s/[ ]{2,10}/ /gis;
@@ -331,6 +335,6 @@ sub reorganizePosts {
 #--------------------------------------------------
 
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
-# open(OUTPUT, ">:encoding(utf16le)", "output.txt");
-# print OUTPUT reorganizePosts;
-print reorganizePosts;
+open(OUTPUT, ">:encoding(utf16le)", "output.txt");
+print OUTPUT reorganizePosts;
+# print reorganizePosts;
