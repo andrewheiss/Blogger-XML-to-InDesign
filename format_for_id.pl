@@ -59,6 +59,10 @@ my $IDbold = "<~~CharStyle:Bold>";
 my $IDsmall = "<~~CharStyle:Small>";
 my $IDsmallitalic = "<~~CharStyle:Small italic>";
 
+# $realstart is used as regex variable in the replacement that removes orphan ID tags. 
+# The file header must be an orphan, so this hides it from the regex.
+my $realstart = quotemeta($IDstart); $realstart =~ s/~~//;
+
 
 #--------------
 # Get started
@@ -198,7 +202,7 @@ sub cleanText {
 	$text =~ s/<~~/</gs;
 	
 	# Clear out orphan ID tags 
-	$text =~ s/^<[^<]+?>$//gsm;
+	$text =~ s/^<[^<|{$realstart}]+?>$//gsm;
 	
 	# Replace 2 or more new lines or spaces with nothing
 	$text =~ s/([\n ])\1+/$1/gsm;
@@ -288,7 +292,7 @@ sub reorganizePosts {
 			# Put extracted text into $output
 			#----------------------------------
 			
-			$output .= "$IDtitle$title\n"; 	# Title
+			$output .= "$IDtitle$title\n"; 		# Title
 			$output .= "$IDurl$posturl\n"; 		# URL
 			$output .= "$IDdate$date\n"; 		# Date
 			$output .= "$IDauthor$author\n"; 	# Author
@@ -324,6 +328,7 @@ sub reorganizePosts {
 		}
 	}
 	
+	# FIXME: Multiple paragraph comments don't get the right paragraph style applied because of cleanText()
 	$output = cleanText($output);
 	
 	return $output;
