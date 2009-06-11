@@ -25,7 +25,7 @@ use XML::LibXML::XPathContext;
 my $setyear = "2009";
 
 # Set the XML file to be parsed and cleaned FUTURE: Maybe allow this to be run via command line arguments as well
-my $file = 'files/blog-huge.xml';
+my $file = 'files/blog-tiny.xml';
 
 
 #----------------------------
@@ -198,8 +198,8 @@ sub cleanText {
 	# FIXME: Other html tags: <blockquote>, <super>, <h1-6>
 	
 	# Clear out any tags that aren't the InDesign tags, take out the dummy ~~ and rebuild the actual tag
-	$text =~ s/<[^~~](?:[^>'"]*|(['"]).*?\1)*>//gs;
-	$text =~ s/<~~/</gs;
+	$text =~ s/<[^~]{2}(?:[^>'"]*|(['"]).*?\1)*>//gs;
+	$text =~ s/<~{2}/</gs;
 	
 	# Clear out orphan ID tags 
 	$text =~ s/^<[^<|\Q$realstart\E]+?>$//gsm;
