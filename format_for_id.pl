@@ -25,7 +25,7 @@ use XML::LibXML::XPathContext;
 my $setyear = "2009";
 
 # Set the XML file to be parsed and cleaned FUTURE: Maybe allow this to be run via command line arguments as well
-my $file = 'files/blog-huge.xml';
+my $file = 'files/blog-tiny.xml';
 
 
 #----------------------------
@@ -139,8 +139,6 @@ sub cleanDate($) {
 #
 #----------------------------------------------------------------------------
 
-# FIXME: Figure out why this isn't completely working. Doesn't work with newlines, since they apparently don't exist?
-
 sub cleanText {
 	my $text = $_[0];
 	my $type = defined $_[1] ? $_[1] : 'post'; # Makes the default text type 'post'
@@ -199,15 +197,11 @@ sub cleanText {
 	$text =~ s/<[^~~](?:[^>'"]*|(['"]).*?\1)*>//gs;
 	$text =~ s/<~~/</gs;
 	
-	# Remove any extra spaces
-	$text =~ s/[ ]{2,10}/ /gis;
+	# Clear out orphan ID tags 
+	$text =~ s/^<[^<]+?>$//gsm;
 	
-	# FIXME: Clear out orphan ID tags 
-	# $text =~ s/^<[^<]+?>$//g;
-	# $text =~ s/^<.*?[^>]>$//gis;
-	
-	# FIXME: Get rid of blank lines
-	# $text =~ s/^\n$//g;
+	# Replace 2 or more new lines or spaces with nothing
+	$text =~ s/([\n ])\1+/$1/gsm;
 	
 	return $text;
 }
@@ -294,7 +288,7 @@ sub reorganizePosts {
 			# Put extracted text into $output
 			#----------------------------------
 			
-			$output .= "\n\n$IDtitle$title\n"; 	# Title
+			$output .= "$IDtitle$title\n"; 	# Title
 			$output .= "$IDurl$posturl\n"; 		# URL
 			$output .= "$IDdate$date\n"; 		# Date
 			$output .= "$IDauthor$author\n"; 	# Author
