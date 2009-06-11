@@ -1,5 +1,4 @@
 #!/usr/bin/perl -w
-# FUTURE: Why do I keep getting this error: Can't find string terminator '"' anywhere before EOF at -e line 1.
 use strict;
 use warnings;
 use diagnostics;
@@ -11,8 +10,10 @@ binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
 #---------------------
 
 # To get to the CPAN shell: "perl -MCPAN -e shell" and then "install Package::Name"
+# FUTURE: Use POSIX instead of Date:: ?
 use Date::Format;
 use Date::Parse;
+# FUTURE: Use XML::Twig or something else to parse both the XML and the extracted HTML and replace all the regexes with parsed variables
 use XML::LibXML;
 use XML::LibXML::XPathContext;
 

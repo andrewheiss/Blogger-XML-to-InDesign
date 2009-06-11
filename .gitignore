@@ -1,0 +1,11 @@
+# Ignore input files
+files
+
+# Ignore junk and external documentation
+junk
+InDesign*
+
+# Ignore other files
+output.txt
+critic.pl
+sample.pl
