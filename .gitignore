@@ -1,11 +1,5 @@
-# Ignore input files
-files
+# Ignore everything...
+*
 
-# Ignore junk and external documentation
-junk
-InDesign*
-
-# Ignore other files
-output.txt
-critic.pl
-sample.pl
+# Except the main script file
+!format_for_id.pl
