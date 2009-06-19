@@ -10,8 +10,8 @@ binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
 #---------------------
 
 # To get to the CPAN shell: "perl -MCPAN -e shell" and then "install Package::Name"
-# FUTURE: Use POSIX instead of Date:: ?
-use Date::Format;
+# See http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm for time2str formatting variables
+use Date::Format; 
 use Date::Parse;
 # FUTURE: Use XML::Twig or something else to parse both the XML and the extracted HTML and replace all the regexes with parsed variables
 use XML::LibXML;
@@ -27,7 +27,7 @@ use HTML::Entities;
 my $setyear = "2009";
 
 # Set the XML file to be parsed and cleaned | FUTURE: Maybe allow this to be run via command line arguments as well
-my $file = 'files/blog-huge.xml';
+my $file = 'files/blog-tiny.xml';
 
 
 #----------------------------
@@ -40,8 +40,9 @@ my $file = 'files/blog-huge.xml';
 # !!! IMPORTANT !!!
 # Because of the text cleanup functions that remove HTML tags from the blog data, the two tildes (~~) serve as dummy text in the tag
 # If you add any tags here, make sure two tildes come after the initial <, otherwise the tag will be cut from the final output
+# The only exception to the two tilde rule is $IDstart, which doesn't go through an cleanup function
 
-my $IDstart = "<~~UNICODE-MAC>";
+my $IDstart = "<UNICODE-MAC>";
 my $IDtitle = "<~~ParaStyle:Post Title>";
 my $IDurl = "<~~ParaStyle:Post URL>";			
 my $IDdate = "<~~ParaStyle:Post Date>";
@@ -66,10 +67,6 @@ my $IDsmall = "<~~CharStyle:Small>";
 my $IDsmallitalic = "<~~CharStyle:Small italic>";
 my $IDsmallbold = "<~~CharStyle:Small bold>";
 
-# $realstart is used as regex variable in the replacement that removes orphan ID tags. 
-# The file header must be an orphan, so this hides it from the regex.
-my $realstart = quotemeta($IDstart); $realstart =~ s/~~//;
-
 
 #--------------
 # Get started
@@ -93,7 +90,6 @@ $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
 
 sub getYear {
 	my $date= $_[0];
-	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g;
 	$date = time2str("%Y", str2time($date), "0");
 	return $date;
 }
@@ -104,9 +100,9 @@ sub getYear {
 #	Sub name: pseudoTimestamp
 #	Purpose: Remove all punctuation from Blogger's timestamp:
 #		2009-04-10T18:51:04.696+02:00 becomes 20090410185104
+#		Used for sorting entries correctly
 #	Incoming parameters: Blogger formatted date
-#	Returns: $output - cleaned, formatted, and tagged text
-#	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
+#	Returns: $date - Blogger's Atom timestamp without punctuation
 #
 #----------------------------------------------------------------------------
 
@@ -150,8 +146,7 @@ sub cleanDate {
 	# Uncomment the next line if you want to override the time zone manually. This will kill DST calculations, unfortunately
 	#$timezone = "0200"; # Use "NNNN" for +NN:NN, "-NNNN" for -NN:NN
 	
-	$date =~ s/\.[0-9]{3}-[0-9|:]{5}|T/ /g; # Clear out the miliseconds and everything that comes after in the timestamp
-	$date = time2str("%A, %B %e, %Y | %l:%M %p", str2time($date), $timezone); # See http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm for time2str formatting variables
+	$date = time2str("%A, %B %e, %Y | %l:%M %p", str2time($date), $timezone); 
 	return $date;
 }
 
@@ -245,7 +240,8 @@ sub cleanText {
 	$text =~ s/<~{2}/</gs;
 	
 	# Clear out orphan ID tags 
-	$text =~ s/^<[^<|\Q$realstart\E]+?>$//gsm;
+	# $text =~ s/^<[^<|\Q$realstart\E]+?>$//gsm;
+	$text =~ s/^<[^<]+?>$//gsm;
 	
 	# Replace 2 or more new lines or spaces with nothing
 	$text =~ s/([\n ])\1+/$1/gsm;
@@ -366,7 +362,8 @@ sub combineSortClean {
 	my %posts = collectPosts;
 	
 	# Start InDesign tagged text
-	my $output = "$IDstart\n";
+	# my $output = "$IDstart\n";
+	my $output = "";
 	
 	# Sort the posts
 	foreach my $key (sort { $a <=> $b } (keys(%posts))) {
@@ -420,7 +417,12 @@ sub combineSortClean {
 
 	}
 	
-	$output = cleanText($output);
+	
+	#---------------------------------------
+	# Add file header and clean up $output
+	#---------------------------------------
+	
+	$output = "$IDstart\n" . cleanText($output);
 	
 	return $output;
 }
@@ -431,6 +433,6 @@ sub combineSortClean {
 #--------------------------------------------------
 
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
-open(OUTPUT, ">:encoding(utf16le)", "output.txt");
-print OUTPUT combineSortClean;
-# print combineSortClean;
+# open(OUTPUT, ">:encoding(utf16le)", "output.txt");
+# print OUTPUT combineSortClean;
+print combineSortClean;
