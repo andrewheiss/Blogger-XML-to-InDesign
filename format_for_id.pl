@@ -27,7 +27,7 @@ use HTML::Entities;
 my $setyear = "2009";
 
 # Set the XML file to be parsed and cleaned | FUTURE: Maybe allow this to be run via command line arguments as well
-my $file = 'files/blog-tiny.xml';
+my $file = 'files/blog-huge.xml';
 
 
 #----------------------------
@@ -36,40 +36,43 @@ my $file = 'files/blog-tiny.xml';
 
 # These tags all follow the IDTT format standard. See http://livedocs.adobe.com/en_US/InDesign/5.0/tagged_text.pdf for full documentation
 # If you want the tag to remain in the file when you place the text, the style referenced must already exist in the InDesign file
+# Comments that are grouped in subfolders follow this syntax, <ParaStyle:Example\:Example text> - the parent style is delineated from the actual style by "\:"
+# Perl interprets the backslash as the escape character for the colon and ignores it.
+# Therefore, you need to use double backslashes "\\:" as the delineator when working with grouped styles
 
-# !!! IMPORTANT !!!
-# Because of the text cleanup functions that remove HTML tags from the blog data, the two tildes (~~) serve as dummy text in the tag
-# If you add any tags here, make sure two tildes come after the initial <, otherwise the tag will be cut from the final output
-# The only exception to the two tilde rule is $IDstart, which doesn't go through an cleanup function
-
+my %ID;
 my $IDstart = "<UNICODE-MAC>";
-my $IDtitle = "<~~ParaStyle:Post Title>";
-my $IDurl = "<~~ParaStyle:Post URL>";			
-my $IDdate = "<~~ParaStyle:Post Date>";
-my $IDauthor = "<~~ParaStyle:Post Author>";
-my $IDparagraph = "<~~ParaStyle:Main text>";
-my $IDfirst = "<~~ParaStyle:First paragraph>";
-my $IDtags = "<~~ParaStyle:Post tags>";
-my $IDlist = "<~~ParaStyle:List>";
-my $IDblock = "<~~ParaStyle:Block quote>";
-my $IDsubhead = "<~~ParaStyle:Sub head>";
-my $IDcommentpara = "<~~ParaStyle:Comments\\:Comment text>";
-my $IDcommentauthor = "<~~ParaStyle:Comments\\:Comment author>";
-my $IDcommentdate = "<~~ParaStyle:Comments\\:Comment date>";
-my $IDsupstart = "<~~cPosition:Superscript>";
-my $IDsupend = "<~~cPosition:>";
-my $IDfootstart = "<~~cPosition:Superscript><~~FootnoteStart:>";
-my $IDfootend = "<~~FootnoteEnd:><~~cPosition:>";
-my $IDcharend = "<~~CharStyle:>";
-my $IDitalic = "<~~CharStyle:Italic>";
-my $IDbold = "<~~CharStyle:Bold>";
-my $IDsmall = "<~~CharStyle:Small>";
-my $IDsmallitalic = "<~~CharStyle:Small italic>";
-my $IDsmallbold = "<~~CharStyle:Small bold>";
+$ID{title} = "<ParaStyle:Post Title>";
+$ID{url} = "<ParaStyle:Post URL>";			
+$ID{date} = "<ParaStyle:Post Date>";
+$ID{author} = "<ParaStyle:Post Author>";
+$ID{paragraph} = "<ParaStyle:Main text>";
+$ID{first} = "<ParaStyle:First paragraph>";
+$ID{tags} = "<ParaStyle:Post tags>";
+$ID{list} = "<ParaStyle:List>";
+$ID{block} = "<ParaStyle:Block quote>";
+$ID{subhead} = "<ParaStyle:Sub head>";
+$ID{commentpara} = "<ParaStyle:Comments\\:Comment text>";
+$ID{commentauthor} = "<ParaStyle:Comments\\:Comment author>";
+$ID{commentdate} = "<ParaStyle:Comments\\:Comment date>";
+$ID{supstart} = "<cPosition:Superscript>";
+$ID{supend} = "<cPosition:>";
+$ID{footstart} = "<cPosition:Superscript><FootnoteStart:>";
+$ID{footend} = "<FootnoteEnd:><cPosition:>";
+$ID{charend} = "<CharStyle:>";
+$ID{italic} = "<CharStyle:Italic>";
+$ID{bold} = "<CharStyle:Bold>";
+$ID{small} = "<CharStyle:Small>";
+$ID{smallitalic} = "<CharStyle:Small italic>";
+$ID{smallbold} = "<CharStyle:Small bold>";
 
+
+###############################################################################
+# Actual script begins
+###############################################################################
 
 #--------------
-# Get started
+# Get started 
 #--------------
 
 # Connect to XML file and create LibXML object with the Atom namespace
@@ -77,6 +80,28 @@ my $parser = XML::LibXML->new();
 my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
+
+# Add the tildes to the %ID hash
+for my $key ( keys %ID ) {
+	$ID{$key} = escapeID($ID{$key});
+}
+
+
+#----------------------------------------------------------------------------
+#
+#	Sub name: escapeID
+#	Purpose: Add tildes in the $ID{}* variables 
+#	Incoming parameters: An $ID{}* variable in standard format: <ParaStyle:Post Title>
+#	Returns: <~~ParaStyle:Post Title>
+#
+#----------------------------------------------------------------------------
+
+sub escapeID {
+	my $fix = $_[0];
+	$fix =~ s/(<)(.*?>)/$1~~$2/gis;
+	return $fix;
+}
+
 
 #----------------------------------------------------------------------------
 #
@@ -166,14 +191,14 @@ sub makeParagraphs {
 	my $type = defined $_[1] ? $_[1] : 'post'; # Makes the default text type 'post'
 	
 	# If cleaning a comment, use the comment styles - otherwise use regular styles
-	my $IDcleanpara = ($type eq 'comment') ? $IDcommentpara : $IDparagraph ;
+	my $cleanpara = ($type eq 'comment') ? $ID{commentpara} : $ID{paragraph} ;
 	
-	$text =~ s/<h[1-6][^>]*>(.*?)<\/h[1-6]>/\n$IDsubhead$1/gis;
+	$text =~ s/<h[1-6][^>]*>(.*?)<\/h[1-6]>/\n$ID{subhead}$1/gis;
 	
 	# Assumes that a break means a real paragraph break and not just a soft return thanks to Blogger's newline interpretation in their CMS
 	# Find any sequence of <br>s and replace with a new line; replace <p>s with ID tags
-	$text =~ s/(<br\s?[\/]?>)+/\n$IDcleanpara/gis;
-	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$IDcleanpara$1/gis;
+	$text =~ s/(<br\s?[\/]?>)+/\n$cleanpara/gis;
+	$text =~ s/<p[^>]*>(.*?)<\/p>/\n$cleanpara$1/gis;
 	
 	return $text;
 }
@@ -193,34 +218,34 @@ sub cleanText {
 	my $text = $_[0];
 	
 	# Find href="" in all links and linked text - strip out the rest of the HTML - put link in footnote
-	$text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2$IDfootstart$1$IDfootend/gis; # Both quotes (href="" & href='')
+	$text =~ s/<a\s[^>]*href=["']+?([^["']*)["']+?[^>]*>(.*?)<\/a>/$2$ID{footstart}$1$ID{footend}/gis; # Both quotes (href="" & href='')
 	
 	# Find images, keep src link, strip the rest out
 	$text =~ s/<img\s[^>]*src=["']+?([^["']*)["']+?[^>]*>/{$1}/gis;
 	
 	# Make any span with font-size in it smaller. It's not all really small, and there are different levels blogger uses. 78% seems to be the most common
 	# FUTURE: Make me more flexible - find the current and historical blogger sizes?
-	$text =~ s/<span[^>]*?font-size[^>]*>(.*?)<\/span>/$IDsmall$1$IDcharend/gis;
+	$text =~ s/<span[^>]*?font-size[^>]*>(.*?)<\/span>/$ID{small}$1$ID{charend}/gis;
 	
 	# Take care of <li>s, <blockquote>s, and <sup>s
-	$text =~ s/<li[^>]*>(.*?)<\/li>/\n$IDlist$1/gis;
-	$text =~ s/<blockquote[^>]*>(.*?)<\/blockquote>/$IDblock$1/gism;
-	$text =~ s/<sup[^>]*>(.*?)<\/sup>/$IDsupstart$1$IDsupend/gis;
+	$text =~ s/<li[^>]*>(.*?)<\/li>/\n$ID{list}$1/gis;
+	$text =~ s/<blockquote[^>]*>(.*?)<\/blockquote>/$ID{block}$1/gism;
+	$text =~ s/<sup[^>]*>(.*?)<\/sup>/$ID{supstart}$1$ID{supend}/gis;
 	
 	# Italicize text between <i>, <em>, and any span with the word italic in any attribute
-	$text =~ s/<span[^>]*?italic[^>]*>(.*?)<\/span>/$IDitalic$1$IDcharend/gis;
-	$text =~ s/<i>(.*?)<\/i>/$IDitalic$1$IDcharend/gis; 
-	$text =~ s/<em>(.*?)<\/em>/$IDitalic$1$IDcharend/gis;
+	$text =~ s/<span[^>]*?italic[^>]*>(.*?)<\/span>/$ID{italic}$1$ID{charend}/gis;
+	$text =~ s/<i>(.*?)<\/i>/$ID{italic}$1$ID{charend}/gis; 
+	$text =~ s/<em>(.*?)<\/em>/$ID{italic}$1$ID{charend}/gis;
 	
 	# Bold text between <b>, <strong>, and any span with the word bold in any attribute
-	$text =~ s/<span[^>]*?bold[^>]*>(.*?)<\/span>/$IDbold$1$IDcharend/gis;
-	$text =~ s/<b>(.*?)<\/b>/$IDbold$1$IDcharend/gis; 
-	$text =~ s/<strong>(.*?)<\/strong>/$IDbold$1$IDcharend/gis;
+	$text =~ s/<span[^>]*?bold[^>]*>(.*?)<\/span>/$ID{bold}$1$ID{charend}/gis;
+	$text =~ s/<b>(.*?)<\/b>/$ID{bold}$1$ID{charend}/gis; 
+	$text =~ s/<strong>(.*?)<\/strong>/$ID{bold}$1$ID{charend}/gis;
 	
 	# ID can't handle nested character styles - combine them when necessary
-	$text =~ s/\Q$IDsmall\E\Q$IDitalic\E/$IDsmallitalic/gi;
-	$text =~ s/\Q$IDsmall\E\Q$IDbold\E/$IDsmallbold/gi;
-	$text =~ s/(\Q$IDcharend\E)\1+/$1/gi;
+	$text =~ s/\Q$ID{small}\E\Q$ID{italic}\E/$ID{smallitalic}/gi;
+	$text =~ s/\Q$ID{small}\E\Q$ID{bold}\E/$ID{smallbold}/gi;
+	$text =~ s/(\Q$ID{charend}\E)\1+/$1/gi;
 	
 	# Add em dashes (2014), en dashes (2013), and ellipses (..., . . .,  or 2026) with non breaking spaces (00A0)
 	$text =~ s/--| - /\x{2014}/gis;
@@ -360,9 +385,6 @@ sub collectPosts {
 sub combineSortClean {
 	my %comments = collectComments;
 	my %posts = collectPosts;
-	
-	# Start InDesign tagged text
-	# my $output = "$IDstart\n";
 	my $output = "";
 	
 	# Sort the posts
@@ -384,14 +406,14 @@ sub combineSortClean {
 		# Put extracted text into $output
 		#----------------------------------
 		
-		$output .= "$IDtitle$title\n"; 		# Title
-		$output .= "$IDurl$posturl\n"; 		# URL
-		$output .= "$IDdate$date\n"; 		# Date
-		$output .= "$IDauthor$author\n"; 	# Author
-		$output .= "$IDtags$tags\n";		# Tags
+		$output .= "$ID{title}$title\n"; 		# Title
+		$output .= "$ID{url}$posturl\n"; 		# URL
+		$output .= "$ID{date}$date\n"; 		# Date
+		$output .= "$ID{author}$author\n"; 	# Author
+		$output .= "$ID{tags}$tags\n";		# Tags
 		
 		$content = makeParagraphs($content);
-		$output .= "$IDfirst$content\n";	# Content with ID First paragraph style
+		$output .= "$ID{first}$content\n";	# Content with ID First paragraph style
 		
 		
 		#-----------------------------------------
@@ -405,9 +427,9 @@ sub combineSortClean {
 			my $commentDate = $process_comment[0];
 			my $commentAuthor = $process_comment[1];
 			my $commentBody = $process_comment[2];
-			$comments .= "$IDcommentauthor$commentAuthor\n";	# Comment author
-			$comments .= "$IDcommentdate$commentDate\n";		# Comment date
-			$comments .= "$IDcommentpara$commentBody\n";		# Comment text
+			$comments .= "$ID{commentauthor}$commentAuthor\n";	# Comment author
+			$comments .= "$ID{commentdate}$commentDate\n";		# Comment date
+			$comments .= "$ID{commentpara}$commentBody\n";		# Comment text
 		}
 
 		# If there are comments print them out
