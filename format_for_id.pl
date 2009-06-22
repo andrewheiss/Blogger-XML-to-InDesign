@@ -4,9 +4,9 @@ use warnings;
 use diagnostics;
 
 
-#---------------------
-# Dependent packages
-#---------------------
+#--------------------------
+# Dependent CPAN packages
+#--------------------------
 
 # To get to the CPAN shell: "perl -MCPAN -e shell" and then "install Package::Name"
 # See http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm for time2str formatting variables
@@ -16,17 +16,16 @@ use Date::Parse;
 use XML::LibXML;
 use XML::LibXML::XPathContext;
 use HTML::Entities;
-use Config::IniFiles;
+use Config::General;
 
 
 #--------------------------------------------
-# Connect to the .ini file and get settings
+# Connect to the .cfg file and get settings
 #--------------------------------------------
 
-my $config = "config.ini";
-my $ini = Config::IniFiles->new(-file => $config) or die "Could not open $config!";
-my $setyear = $ini->val('Source','year');
-my $file = $ini->val('Source','file');
+my $cfgfile = "config.cfg";
+my $conf = new Config::General($cfgfile);
+my %config = $conf->getall;
 
 
 #--------------
@@ -35,18 +34,17 @@ my $file = $ini->val('Source','file');
 
 # Connect to XML file and create LibXML object with the Atom namespace
 my $parser = XML::LibXML->new();
-my $doc = $parser->parse_file($file);
+my $doc = $parser->parse_file($config{input}{file});
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
 
+# Escape the $config{tags} hash and save it as %ID
 my %ID;
-my @tags = $ini->val('InDesign','tags');
-
-foreach my $tag (@tags) {
-	my @process_tag = split(/=/, $tag);
-	my $tag_key = escapeID($process_tag[0]);
-	my $tag_value = escapeID($process_tag[1]);
-	$ID{$tag_key} = $tag_value;
+for my $tag ($config{tags}){
+	my ($key, $value);
+	while (($key, $value) = each %{$tag}) {
+		$ID{$key} = escapeID($value);
+	}
 }
 
 
@@ -298,7 +296,7 @@ sub collectPosts {
 		my $type = $xc->findvalue('./post:category/@term', $post);
 		my $checkyear = getYear($xc->findvalue('./post:published', $post));
 		
-		if (($type =~ /post/) && ($checkyear eq $setyear)) {
+		if (($type =~ /post/) && ($checkyear eq $config{input}{year})) {
 		
 			#----------------------------------------------------------------------------
 			# Get text out of the XML if there's an actual URL (the post was published)
@@ -413,7 +411,7 @@ sub combineSortClean {
 	# Add file header and clean up $output
 	#---------------------------------------
 	
-	$output = $ini->val('InDesign','file_header'). "\n" . cleanText($output);
+	$output = $config{output}{file_header}. "\n" . cleanText($output);
 	
 	return $output;
 }
@@ -424,7 +422,7 @@ sub combineSortClean {
 #--------------------------------------------------
 
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
-if ($ini->val('Debugging','testing') == 0) {
+if ($config{testing} == 0) {
 	open(OUTPUT, ">:encoding(utf16le)", "output.txt");
 	print OUTPUT combineSortClean;
 } else {

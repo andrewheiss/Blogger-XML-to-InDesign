@@ -3,4 +3,4 @@
 
 # Except the main script file
 !format_for_id.pl
-!config.ini
+!config*
