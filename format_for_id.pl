@@ -2,7 +2,6 @@
 use strict;
 use warnings;
 use diagnostics;
-binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
 
 
 #---------------------
@@ -17,59 +16,18 @@ use Date::Parse;
 use XML::LibXML;
 use XML::LibXML::XPathContext;
 use HTML::Entities;
+use Config::IniFiles;
 
 
-#-----------------------
-# Main setup variables
-#-----------------------
+#--------------------------------------------
+# Connect to the .ini file and get settings
+#--------------------------------------------
 
-# Select what year to extract | FUTURE: Allow for a range of dates rather than just a year, using new pseudoTimestamp() sub
-my $setyear = "2009";
+my $config = "config.ini";
+my $ini = Config::IniFiles->new(-file => $config) or die "Could not open $config!";
+my $setyear = $ini->val('Source','year');
+my $file = $ini->val('Source','file');
 
-# Set the XML file to be parsed and cleaned | FUTURE: Maybe allow this to be run via command line arguments as well
-my $file = 'files/blog-huge.xml';
-
-
-#----------------------------
-# InDesign Tagged Text tags
-#----------------------------
-
-# These tags all follow the IDTT format standard. See http://livedocs.adobe.com/en_US/InDesign/5.0/tagged_text.pdf for full documentation
-# If you want the tag to remain in the file when you place the text, the style referenced must already exist in the InDesign file
-# Comments that are grouped in subfolders follow this syntax, <ParaStyle:Example\:Example text> - the parent style is delineated from the actual style by "\:"
-# Perl interprets the backslash as the escape character for the colon and ignores it.
-# Therefore, you need to use double backslashes "\\:" as the delineator when working with grouped styles
-
-my %ID;
-my $IDstart = "<UNICODE-MAC>";
-$ID{title} = "<ParaStyle:Post Title>";
-$ID{url} = "<ParaStyle:Post URL>";			
-$ID{date} = "<ParaStyle:Post Date>";
-$ID{author} = "<ParaStyle:Post Author>";
-$ID{paragraph} = "<ParaStyle:Main text>";
-$ID{first} = "<ParaStyle:First paragraph>";
-$ID{tags} = "<ParaStyle:Post tags>";
-$ID{list} = "<ParaStyle:List>";
-$ID{block} = "<ParaStyle:Block quote>";
-$ID{subhead} = "<ParaStyle:Sub head>";
-$ID{commentpara} = "<ParaStyle:Comments\\:Comment text>";
-$ID{commentauthor} = "<ParaStyle:Comments\\:Comment author>";
-$ID{commentdate} = "<ParaStyle:Comments\\:Comment date>";
-$ID{supstart} = "<cPosition:Superscript>";
-$ID{supend} = "<cPosition:>";
-$ID{footstart} = "<cPosition:Superscript><FootnoteStart:>";
-$ID{footend} = "<FootnoteEnd:><cPosition:>";
-$ID{charend} = "<CharStyle:>";
-$ID{italic} = "<CharStyle:Italic>";
-$ID{bold} = "<CharStyle:Bold>";
-$ID{small} = "<CharStyle:Small>";
-$ID{smallitalic} = "<CharStyle:Small italic>";
-$ID{smallbold} = "<CharStyle:Small bold>";
-
-
-###############################################################################
-# Actual script begins
-###############################################################################
 
 #--------------
 # Get started 
@@ -81,9 +39,14 @@ my $doc = $parser->parse_file($file);
 my $xc = XML::LibXML::XPathContext->new($doc->documentElement());
 $xc->registerNs(post => 'http://www.w3.org/2005/Atom');
 
-# Add the tildes to the %ID hash
-for my $key ( keys %ID ) {
-	$ID{$key} = escapeID($ID{$key});
+my %ID;
+my @tags = $ini->val('InDesign','tags');
+
+foreach my $tag (@tags) {
+	my @process_tag = split(/=/, $tag);
+	my $tag_key = escapeID($process_tag[0]);
+	my $tag_value = escapeID($process_tag[1]);
+	$ID{$tag_key} = $tag_value;
 }
 
 
@@ -98,8 +61,14 @@ for my $key ( keys %ID ) {
 
 sub escapeID {
 	my $fix = $_[0];
-	$fix =~ s/(<)(.*?>)/$1~~$2/gis;
-	return $fix;
+	$fix =~ s/(<)(.*?>)/$1~~$2/gis;	# Add tildes
+	return trim($fix);
+}
+
+sub trim {
+	my $string = $_[0];
+	$string =~ s/^\s+|\s+$//g; 		# Trim whitespace from the beginning and end of the string
+	return $string;
 }
 
 
@@ -444,7 +413,7 @@ sub combineSortClean {
 	# Add file header and clean up $output
 	#---------------------------------------
 	
-	$output = "$IDstart\n" . cleanText($output);
+	$output = $ini->val('InDesign','file_header'). "\n" . cleanText($output);
 	
 	return $output;
 }
@@ -455,6 +424,10 @@ sub combineSortClean {
 #--------------------------------------------------
 
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
-# open(OUTPUT, ">:encoding(utf16le)", "output.txt");
-# print OUTPUT combineSortClean;
-print combineSortClean;
+if ($ini->val('Debugging','testing') == 0) {
+	open(OUTPUT, ">:encoding(utf16le)", "output.txt");
+	print OUTPUT combineSortClean;
+} else {
+	binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
+	print combineSortClean;
+}
