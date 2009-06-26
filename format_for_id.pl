@@ -266,7 +266,8 @@ sub collectComments {
 			my $date = cleanDate($xc->findvalue('./post:published', $comment));
 			my $posturl = $xc->findvalue('./*[name()="thr:in-reply-to"]/@href', $comment);
 			
-			# Save comment with temporary ~~~ delimiting | FUTURE: Store it as an array instead
+			# Save comment with temporary ~~~ delimiting
+			# FUTURE: Store it as an array instead - trickier than I thought...
 			my $fullComment = "$date~~~$author~~~$content";
 		
 			# Store it all in the hash
