@@ -386,7 +386,7 @@ sub combineSortClean {
 			$name = $ID{andrew};
 		} elsif ($author =~ /nancy/i) {
 			$name = $ID{nancy};
-		} else ($author =~ /rachel/i) {
+		} elsif ($author =~ /rachel/i) {
 			$name = $ID{rachel};
 		}
 		$output .= "$ID{author}$name$author$ID{charend}\n"; 	# Author
