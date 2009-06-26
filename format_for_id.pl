@@ -377,7 +377,20 @@ sub combineSortClean {
 		$output .= "$ID{title}$title\n"; 		# Title
 		$output .= "$ID{url}$posturl\n"; 		# URL
 		$output .= "$ID{date}$date\n"; 		# Date
-		$output .= "$ID{author}$author\n"; 	# Author
+		
+		# $output .= "$ID{author}$author\n"; 	# Author
+		
+		# Custom character styles wrapped around specific authors 
+		my $name = "";
+		if ($author =~ /andrew/i) {
+			$name = $ID{andrew};
+		} elsif ($author =~ /nancy/i) {
+			$name = $ID{nancy};
+		} else ($author =~ /rachel/i) {
+			$name = $ID{rachel};
+		}
+		$output .= "$ID{author}$name$author$ID{charend}\n"; 	# Author
+		
 		$output .= "$ID{tags}$tags\n";		# Tags
 		
 		$content = makeParagraphs($content);
