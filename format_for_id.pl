@@ -423,7 +423,7 @@ sub combineSortClean {
 
 # Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
 if ($config{testing} == 0) {
-	open(OUTPUT, ">:encoding(utf16le)", "output.txt");
+	open(OUTPUT, ">:encoding(utf16le)", $config{output}{file});
 	print OUTPUT combineSortClean;
 } else {
 	binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
