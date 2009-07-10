@@ -220,9 +220,6 @@ sub cleanText {
 	$text =~ s/([\.\?!,:;])[ ]?\.[ ]?\.[ ]?\.[ ]?|([\.\?!,:;])[ ]?\x{2026}[ ]?/$1\x{00A0}.\x{00A0}.\x{00A0}. /gis; # 4 dot elipses (after punctuation)
 	$text =~ s/[ ]?\.[ ]?\.[ ]?\.[ ]?|[ ]?\x{2026}[ ]?/\x{00A0}.\x{00A0}.\x{00A0}. /gis; # 3 dot elipses
 	
-	# FUTURE: Indexing?
-	# Possible ID index syntax = <IndexEntry:=<IndexEntryType:IndexPageEntry><IndexEntryRangeType:kCurrentPage><IndexEntryDisplayString:Test>>
-	
 	# Clear out any xml and stylesheets left by Word
 	$text =~ s/<style>(.*?)<\/style>//gi;
 	$text =~ s/<xml>(.*?)<\/xml>//gi;
