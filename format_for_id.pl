@@ -368,6 +368,7 @@ sub combineSortClean {
 		my $date = $posts{$key}[3];
 		my $posturl = $posts{$key}[4];
 		my $tags = $posts{$key}[5];
+		my @tags_array = split(/,/, $tags);
 		
 		
 		#----------------------------------
@@ -375,10 +376,8 @@ sub combineSortClean {
 		#----------------------------------
 		
 		$output .= "$ID{title}$title\n"; 		# Title
-		$output .= "$ID{url}$posturl\n"; 		# URL
 		$output .= "$ID{date}$date\n"; 		# Date
-		
-		# $output .= "$ID{author}$author\n"; 	# Author
+		$output .= "$ID{url}$posturl\n"; 		# URL
 		
 		# Custom character styles wrapped around specific authors 
 		my $name = "";
@@ -389,13 +388,16 @@ sub combineSortClean {
 		} elsif ($author =~ /rachel/i) {
 			$name = $ID{rachel};
 		}
-		$output .= "$ID{author}$name$author$ID{charend}\n"; 	# Author
 		
-		$output .= "$ID{tags}$tags\n";		# Tags
+		foreach my $tag (@tags_array) {
+			$output .= $ID{indexstart} . $ID{indexentrytype} . $ID{indexrangetype} . $ID{indexdisplay} . trim($tag) . $ID{indexend};
+		}
+		
+		# $output .= "$ID{tags}$tags\n";		# Tags
 		
 		$content = makeParagraphs($content);
 		$output .= "$ID{first}$content\n";	# Content with ID First paragraph style
-		
+		$output .= "$ID{author}$name-$author$ID{charend}\n"; 	# Author
 		
 		#-----------------------------------------
 		# Add corresponding comments to the post
@@ -415,6 +417,7 @@ sub combineSortClean {
 
 		# If there are comments print them out
 		if ($comments ne '') {
+			$output .= "$ID{commentheader}Comments\n";
 			$output .= makeParagraphs($comments, "comment");
 		}
 
