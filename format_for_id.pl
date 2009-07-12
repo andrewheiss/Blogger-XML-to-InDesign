@@ -8,7 +8,12 @@ use diagnostics;
 # Dependent CPAN packages
 #--------------------------
 
-# To get to the CPAN shell: "perl -MCPAN -e shell" and then "install Package::Name"
+# To get to the CPAN shell: 
+# -Mac OS X: "perl -MCPAN -e shell" 
+# -Linux: "sudo cpan"
+# -Windows: Use Stawberry Perl and the packaged CPAN Client
+# ... then type "install Package::Name"
+
 # See http://search.cpan.org/dist/TimeDate/lib/Date/Format.pm for time2str formatting variables
 use Date::Format; 
 use Date::Parse;
@@ -229,7 +234,6 @@ sub cleanText {
 	$text =~ s/<~{2}/</gs;
 	
 	# Clear out orphan ID tags 
-	# $text =~ s/^<[^<|\Q$realstart\E]+?>$//gsm;
 	$text =~ s/^<[^<]+?>$//gsm;
 	
 	# Replace 2 or more new lines or spaces with nothing
@@ -435,9 +439,9 @@ sub combineSortClean {
 # Parse the XML, clean up the text and output it.
 #--------------------------------------------------
 
-# Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian
+# Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian. :raw layer needs to be enabled for proper newlines in Windows (I have no idea why, though)
 if ($config{testing} == 0) {
-	open(OUTPUT, ">:encoding(utf16le)", $config{output}{file});
+	open(OUTPUT, ">:raw:encoding(utf16le)", $config{output}{file});
 	print OUTPUT combineSortClean;
 } else {
 	binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
