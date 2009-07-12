@@ -8,7 +8,7 @@ use diagnostics;
 # Dependent CPAN packages
 #--------------------------
 
-# To get to the CPAN shell: 
+# To get to the CPAN shell:
 # -Mac OS X: "perl -MCPAN -e shell" 
 # -Linux: "sudo cpan"
 # -Windows: Use Stawberry Perl and the packaged CPAN Client
