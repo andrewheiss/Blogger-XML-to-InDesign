@@ -398,7 +398,7 @@ sub combineSortClean {
 		#----------------------------------
 		
 		$output .= "$ID{title}$title\n"; 		# Title
-		$output .= "$ID{date}$date\n"; 		# Date
+		$output .= "$ID{date}$date\n"; 			# Date
 		$output .= "$ID{url}$posturl\n"; 		# URL
 		
 		# Custom character styles wrapped around specific authors 
@@ -411,14 +411,16 @@ sub combineSortClean {
 			$name = $ID{rachel};
 		}
 		
+		# Index tags
 		foreach my $tag (@tags_array) {
 			$output .= $ID{indexstart} . $ID{indexentrytype} . $ID{indexrangetype} . $ID{indexdisplay} . trim($tag) . $ID{indexend};
 		}
 		
-		# $output .= "$ID{tags}$tags\n";		# Tags
+		# Output the tags
+		# $output .= "$ID{tags}$tags\n";
 		
 		$content = makeParagraphs($content);
-		$output .= "$ID{first}$content\n";	# Content with ID First paragraph style
+		$output .= "$ID{first}$content\n";						# Content with ID First paragraph style
 		$output .= "$ID{author}$name-$author$ID{charend}\n"; 	# Author
 		
 		#-----------------------------------------
