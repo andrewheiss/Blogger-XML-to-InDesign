@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use diagnostics;
+use subs qw(combineSortClean);
 
 
 #--------------------------
@@ -24,18 +25,14 @@ use HTML::Entities;
 use Config::General;
 
 
-#--------------------------------------------
-# Connect to the .cfg file and get settings
-#--------------------------------------------
+#------------------------
+# Run the actual script
+#------------------------
 
+# Connect to the .cfg file and get settings
 my $cfgfile = "config.cfg";
 my $conf = new Config::General($cfgfile);
 my %config = $conf->getall;
-
-
-#--------------
-# Get started 
-#--------------
 
 # Connect to XML file and create LibXML object with the Atom namespace
 my $parser = XML::LibXML->new();
@@ -52,15 +49,32 @@ for my $tag ($config{tags}){
 	}
 }
 
+# Parse the XML, clean up the text, and output it
+if ($config{testing} == 0) {
+	# Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian. 
+	# :raw layer needs to be enabled for proper newlines in Windows (I have no idea why, though)
+	open(OUTPUT, ">:raw:encoding(utf16le)", $config{output}{file});
+	print OUTPUT combineSortClean;
+} else {
+	binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
+	print combineSortClean;
+}
 
-#----------------------------------------------------------------------------
+
+#-------------------------------------
+# Helper functions to run the script 
+#-------------------------------------
+
+# FUTURE: Rewrite this all as a class. It already essentially is one--all the functions would be private except combineSortClean(). 
+
+#------------------------------------
 #
 #	Sub name: escapeID
 #	Purpose: Add tildes in the $ID{}* variables 
 #	Incoming parameters: An $ID{}* variable in standard format: <ParaStyle:Post Title>
-#	Returns: <~~ParaStyle:Post Title>
+#	Returns: $fix - Tilde-escaped string: <~~ParaStyle:Post Title>
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub escapeID {
 	my $fix = $_[0];
@@ -68,22 +82,32 @@ sub escapeID {
 	return trim($fix);
 }
 
+
+#------------------------------------
+#
+#	Sub name: trim
+#	Purpose: Replicate PHP's trim() - trim whitespace from the beginning and end of the string
+#	Incoming paramter: Any string
+#	Returns: $string - Trimmed $string
+#
+#------------------------------------
+
 sub trim {
 	my $string = $_[0];
-	$string =~ s/^\s+|\s+$//g; 		# Trim whitespace from the beginning and end of the string
+	$string =~ s/^\s+|\s+$//g;
 	return $string;
 }
 
 
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: getYear
 #	Purpose: Gets only the year out of Blogger's date to be used in reorganizePosts() and limit post extraction to one year
-#	Incoming parameters: Blogger's date - 2008-02-29T08:50:00.000-08:00
-#	Returns: A four digit year
+#	Incoming parameter: Blogger's Atom timestamp - 2008-02-29T08:50:00.000-08:00
+#	Returns: $date - A four digit year
 #	Dependencies: Date::Format, Date::Parse
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub getYear {
 	my $date= $_[0];
@@ -92,16 +116,14 @@ sub getYear {
 }
 
 
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: pseudoTimestamp
-#	Purpose: Remove all punctuation from Blogger's timestamp:
-#		2009-04-10T18:51:04.696+02:00 becomes 20090410185104
-#		Used for sorting entries correctly
-#	Incoming parameters: Blogger formatted date
-#	Returns: $date - Blogger's Atom timestamp without punctuation
+#	Purpose: Remove all punctuation from Blogger's timestamp - used for sorting entries chronologically
+#	Incoming parameter: Blogger's Atom timestamp - 2009-04-10T18:51:04.696+02:00
+#	Returns: $date - Timestamp without punctuation - 20090410185104
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub pseudoTimestamp {
     my $date = $_[0];
@@ -110,20 +132,20 @@ sub pseudoTimestamp {
 }
 
 
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: cleanDate
 #	Purpose: Transform the date provided by Blogger into a string that can be used by Date::Parse's str2ime()
-#	Incoming parameters: Blogger's date - 2008-02-29T08:50:00.000-08:00
-#	Returns: Cleaned up date
+#	Incoming parameters: Blogger's Atom timestamp - 2008-02-29T08:50:00.000-08:00
+#	Returns: $date - Cleaned up, human readable date
 #	Dependencies: Date::Format, Date::Parse
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub cleanDate {
 	my $date= $_[0];
 	
-	#------------------------------------------------------------------------
+	#------------------------------------
 	# Time zone issues:
 	# Blogger decides the time zone offset based on the global time zone blog setting rather than GMT
 	# So, if you publish a post in MST, the timestamp will end in -07:00
@@ -134,7 +156,7 @@ sub cleanDate {
 	# If there are mutliple timezones in the year, download several copies of the backup, run this on all of them, and combine them in InDesign as necessary
 	# It's extremely messy and convoluted but it's the only workaround I've found for now.
 	# FUTURE: Simplify this
-	#------------------------------------------------------------------------
+	#------------------------------------
 	
 	my $timezone = $date;
 	$timezone =~ s/.*T.{12}(.){1}(\d\d):(\d\d)/$1$2$3/; # Extract the time zone
@@ -148,15 +170,16 @@ sub cleanDate {
 }
 
 
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: makeParagraphs
-#	Purpose: Replace <br>s and <p>s with correct tags
-#	Incoming parameters: Text to be divided as $text, optional $type - use 'comment' to put appropriate styles in comments
-#	Returns: Tag-delimited text
+#	Purpose: Replace <br>s and <p>s with correct InDesign tags
+#	Incoming parameters: Text to be divided as $text, 
+#		Optional $type - use 'comment' to put appropriate styles in comments
+#	Returns: $text - Tag-delimited text
 #	Dependencies: None
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub makeParagraphs {
 	my $text = $_[0];
@@ -176,15 +199,15 @@ sub makeParagraphs {
 }
 
 
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: cleanText
 #	Purpose: Take out html tags, remove spaces, and generally clean up a string
 #	Incoming parameters: Text to be cleaned as $text
-#	Returns: Cleaned up text
+#	Returns: $text - Cleaned up text
 #	Dependencies: None
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub cleanText {
 	my $text = $_[0];
@@ -246,16 +269,15 @@ sub cleanText {
 }
 
 
-
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: collectComments
 #	Purpose: Parse the XML file for all comments and save them in an indexed hash
 #	Incoming parameters: None
 #	Returns: %comments hash
-#	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
+#	Dependencies: XML::LibXML, XML::LibXML::XPathContext
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub collectComments {
 	my %comments;
@@ -280,15 +302,15 @@ sub collectComments {
 }
 
 
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: collectPosts
 #	Purpose: Parse the XML file for all blog posts, save all the retrieved data as an array in an indexed hash
 #	Incoming parameters: None
 #	Returns: %posts - %hash = ($date => [ '$value1', '$value2', '$value3' ],...)
-#	Dependencies: XML::LibXML, XML::LibXML::XPathContext;
+#	Dependencies: XML::LibXML, XML::LibXML::XPathContext
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub collectPosts {
 	my %posts;
@@ -341,15 +363,14 @@ sub collectPosts {
 }
 
 
-#----------------------------------------------------------------------------
+#------------------------------------
 #
 #	Sub name: combineSortClean
 #	Purpose: Sort the posts, clean up all text, connect comments with posts
 #	Incoming parameters: None
 #	Returns: $output - cleaned, formatted, and tagged text
-#	Dependencies: None
 #
-#----------------------------------------------------------------------------
+#------------------------------------
 
 sub combineSortClean {
 	my %comments = collectComments;
@@ -434,16 +455,53 @@ sub combineSortClean {
 	return $output;
 }
 
+__END__
 
-#--------------------------------------------------
-# Parse the XML, clean up the text and output it.
-#--------------------------------------------------
+=head1 NAME
 
-# Open output file, set encoding to unicode - InDesign needs UTF16 Little Endian. :raw layer needs to be enabled for proper newlines in Windows (I have no idea why, though)
-if ($config{testing} == 0) {
-	open(OUTPUT, ">:raw:encoding(utf16le)", $config{output}{file});
-	print OUTPUT combineSortClean;
-} else {
-	binmode(STDOUT, ':utf8'); # Set STDOUT encoding to unicode for testing
-	print combineSortClean;
-}
+Blogger XML to InDesign
+
+=head1 SYNOPSIS
+
+
+
+=head1 DESCRIPTION
+
+This script takes a backed-up Atom feed of a Blogger blog and converts it to a typographically clean InDesign Tagged Text file.
+
+=head1 LICENSE
+
+I<Blogger XML to InDesign is licensed under the terms of the MIT License reproduced below>
+
+Copyright (c) 2009 Andrew Heiss
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+=head1 AUTHOR
+
+Andrew Heiss (andrew@andrewheiss.com)
+
+=head1 DOCUMENTATION
+
+=head2 Dependent Packages
+
+L<Date::Format|Date::Format>, L<Date::Parse|Date::Parse>, L<XML::LibXML|XML::LibXML>, L<XML::LibXML::XPathContext|XML::LibXML::XPathContext>, L<HTML::Entities|HTML::Entities>, L<Config::General|Config::General>
