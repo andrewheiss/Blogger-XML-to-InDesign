@@ -401,16 +401,6 @@ sub combineSortClean {
 		$output .= "$ID{date}$date\n"; 			# Date
 		$output .= "$ID{url}$posturl\n"; 		# URL
 		
-		# Custom character styles wrapped around specific authors 
-		my $name = "";
-		if ($author =~ /andrew/i) {
-			$name = $ID{andrew};
-		} elsif ($author =~ /nancy/i) {
-			$name = $ID{nancy};
-		} elsif ($author =~ /rachel/i) {
-			$name = $ID{rachel};
-		}
-		
 		# Index tags
 		foreach my $tag (@tags_array) {
 			$output .= $ID{indexstart} . $ID{indexentrytype} . $ID{indexrangetype} . $ID{indexdisplay} . trim($tag) . $ID{indexend};
@@ -421,7 +411,22 @@ sub combineSortClean {
 		
 		$content = makeParagraphs($content);
 		$output .= "$ID{first}$content\n";						# Content with ID First paragraph style
+		
+		
+		# Custom character styles wrapped around specific authors 
+		my $name = "";
+		if ($author =~ /andrew/i) {
+			$name = $ID{andrew};
+		} elsif ($author =~ /nancy/i) {
+			$name = $ID{nancy};
+		} elsif ($author =~ /rachel/i) {
+			$name = $ID{rachel};
+		}
+		
 		$output .= "$ID{author}$name-$author$ID{charend}\n"; 	# Author
+		
+		# Output just the author, without any fancy character styles
+		#$output .= "$ID{author}$author\n"; 	# Author
 		
 		#-----------------------------------------
 		# Add corresponding comments to the post
@@ -465,7 +470,7 @@ Blogger XML to InDesign
 
 =head1 SYNOPSIS
 
-
+Modify the configuration file (C<< config.cfg >>) and set the input and output files. Run the script. Place the resulting text file into InDesign. Modify the script as needed/wanted. Enjoy!
 
 =head1 DESCRIPTION
 
@@ -504,6 +509,6 @@ Andrew Heiss (andrew@andrewheiss.com)
 
 =head1 DOCUMENTATION
 
-=head2 Dependent Packages
+=head2 Dependent CPAN Packages
 
 L<Date::Format|Date::Format>, L<Date::Parse|Date::Parse>, L<XML::LibXML|XML::LibXML>, L<XML::LibXML::XPathContext|XML::LibXML::XPathContext>, L<HTML::Entities|HTML::Entities>, L<Config::General|Config::General>
